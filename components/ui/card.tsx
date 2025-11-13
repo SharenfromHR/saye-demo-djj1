@@ -1,8 +1,21 @@
 "use client";
 
-export function Card({ children, className='' }) {
-  return <div className={"border rounded-xl bg-white "+className}>{children}</div>;
+import { cn } from "@/lib/utils";
+
+export function Card({ className, ...props }) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border bg-white shadow-sm ring-1 ring-slate-200",
+        className
+      )}
+      {...props}
+    />
+  );
 }
-export function CardContent({ children, className='' }) {
-  return <div className={className}>{children}</div>;
+
+export function CardContent({ className, ...props }) {
+  return (
+    <div className={cn("p-6", className)} {...props} />
+  );
 }
