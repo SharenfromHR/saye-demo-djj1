@@ -1,3 +1,5 @@
+"use client";
+
 import SAYEPage from "@/components/SAYEPage";
 import SAYEConfig from "@/components/SAYEConfig";
 
