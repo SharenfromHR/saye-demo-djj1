@@ -1,3 +1,4 @@
+"use client";
 
 export function Card({ children, className='' }) {
   return <div className={"border rounded-xl bg-white "+className}>{children}</div>;
