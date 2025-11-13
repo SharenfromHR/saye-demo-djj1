@@ -1,6 +1,8 @@
+"use client";
 
-import SAYEPage from "@/components/SAYEPage";
+import React from "react";
+import SAYEPage from "../../components/SAYEPage";
 
-export default function Page() {
+export default function SayePage() {
   return <SAYEPage />;
 }
