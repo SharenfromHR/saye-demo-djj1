@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
+import { Tooltip } from "./ui/tooltip";   // ⬅️ add this line
 import { Info, ChevronDown } from "lucide-react";
 
 const formatMoney = (n: number, ccy = "GBP") =>
