@@ -563,15 +563,25 @@ export default function SAYEPage() {
                             Missed
                           </th>
                           <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
-  <div className="flex items-center gap-1">
+  <div className="flex items-center gap-1 relative group">
     Estimated gain
-    <Tooltip text="(Current price – Option price) × Options granted. Uses the latest market price and is for illustration only.">
-      <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold cursor-default">
-        i
-      </span>
-    </Tooltip>
+    <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold cursor-default">
+      i
+    </span>
+    <div
+      className="
+        absolute left-1/2 -translate-x-1/2 top-full mt-1
+        hidden group-hover:block
+        whitespace-nowrap
+        bg-slate-900 text-white text-xs px-2 py-1 rounded-md shadow-lg
+        z-50
+      "
+    >
+      (Current price – option price) × options granted. Uses the mock current price shown above and is for illustration only.
+    </div>
   </div>
 </th>
+
                           <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
                             Saved
                           </th>
