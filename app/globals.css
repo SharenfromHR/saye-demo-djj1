@@ -2,21 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  html, body {
-    @apply bg-slate-50 text-slate-900 antialiased;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-  }
+/* Basic global styling */
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
 
-  table {
-    @apply w-full border-collapse;
-  }
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
 
-  th {
-    @apply text-left text-xs font-semibold uppercase tracking-wider text-slate-500;
-  }
+a {
+  @apply text-indigo-600 hover:underline;
+}
 
-  td {
-    @apply text-sm text-slate-700 align-middle;
-  }
+table {
+  @apply w-full border-collapse;
 }
