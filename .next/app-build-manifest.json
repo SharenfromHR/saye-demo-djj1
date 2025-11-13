@@ -1,0 +1,35 @@
+{
+  "pages": {
+    "/_not-found": [
+      "static/chunks/webpack-aacfb10730c9b0da.js",
+      "static/chunks/fd9d1056-29747bc2780d91d6.js",
+      "static/chunks/69-dc9e673d8bffa6cd.js",
+      "static/chunks/main-app-d07de4cdeb2b705e.js",
+      "static/chunks/app/_not-found-4a8809a0d8224f91.js"
+    ],
+    "/layout": [
+      "static/chunks/webpack-aacfb10730c9b0da.js",
+      "static/chunks/fd9d1056-29747bc2780d91d6.js",
+      "static/chunks/69-dc9e673d8bffa6cd.js",
+      "static/chunks/main-app-d07de4cdeb2b705e.js",
+      "static/css/113443fcfe40379c.css",
+      "static/chunks/app/layout-6e452fbcbc527ea7.js"
+    ],
+    "/page": [
+      "static/chunks/webpack-aacfb10730c9b0da.js",
+      "static/chunks/fd9d1056-29747bc2780d91d6.js",
+      "static/chunks/69-dc9e673d8bffa6cd.js",
+      "static/chunks/main-app-d07de4cdeb2b705e.js",
+      "static/chunks/120-0f8a188509eca4b4.js",
+      "static/chunks/app/page-0497d6ecdb68afb2.js"
+    ],
+    "/saye/page": [
+      "static/chunks/webpack-aacfb10730c9b0da.js",
+      "static/chunks/fd9d1056-29747bc2780d91d6.js",
+      "static/chunks/69-dc9e673d8bffa6cd.js",
+      "static/chunks/main-app-d07de4cdeb2b705e.js",
+      "static/chunks/120-0f8a188509eca4b4.js",
+      "static/chunks/app/saye/page-251316f1f7ccd5d6.js"
+    ]
+  }
+}
