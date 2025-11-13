@@ -561,8 +561,15 @@ export default function SAYEPage() {
                             Missed
                           </th>
                           <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
-                            Estimated gain
-                          </th>
+  <div className="flex items-center gap-1">
+    Estimated gain
+    <Tooltip text="(Current price – Option price) × Options granted. Uses the latest market price and is for illustration only.">
+      <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold cursor-default">
+        i
+      </span>
+    </Tooltip>
+  </div>
+</th>
                           <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
                             Saved
                           </th>
