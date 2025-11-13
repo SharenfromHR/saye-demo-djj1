@@ -576,7 +576,7 @@ export default function SAYEPage() {
         z-50
       "
     >
-      (Current price – option price) × options granted. Uses the mock current price shown above and is for illustration only.
+      (Current price – option price) × options granted. 
     </div>
   </div>
 </th>
