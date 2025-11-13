@@ -5,7 +5,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Info, ChevronDown } from "lucide-react";
 
-
 const formatMoney = (n: number, ccy = "GBP") =>
   new Intl.NumberFormat(undefined, {
     style: "currency",
