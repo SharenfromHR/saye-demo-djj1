@@ -1,6 +1,4 @@
-"use client";
-
-import SAYEPage from "@/components/SAYEPage";
+import SAYEPage from "../../components/SAYEPage";
 
 export default function SayeRoute() {
   return <SAYEPage />;
