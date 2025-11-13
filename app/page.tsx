@@ -1,4 +1,5 @@
-// app/page.tsx
+"use client";
+
 import SAYEPage from "@/components/SAYEPage";
 
 export default function Home() {
