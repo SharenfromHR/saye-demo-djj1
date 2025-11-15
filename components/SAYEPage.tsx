@@ -60,17 +60,10 @@ type Participant = {
   contracts: ParticipantContract[];
 };
 
-type Participant = {
-  id: string;
-  name: string;
-  employeeId: string;
-  email: string;
-  location?: string;
-  currency: string;
-  contracts: ParticipantContract[];
-};
+const CURRENT_PRICE_GBP = 1.4;
+const TICKER = "DJJ";
+const COMPANY = "DJJ Ltd";
 
-// Seed some fake people
 const initialParticipants: Participant[] = [
   {
     id: "P001",
