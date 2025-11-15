@@ -1358,6 +1358,8 @@ function Modal({
 type SAYEConfigViewProps = {
   planConfigs: PlanConfig[];
   setPlanConfigs: React.Dispatch<React.SetStateAction<PlanConfig[]>>;
+  participants: Participant[];
+  setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
 };
 
 function SAYEConfigView({
@@ -1369,14 +1371,6 @@ function SAYEConfigView({
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<PlanConfig | null>(null);
-import { Participant } from "./SAYEPage";
-
-type SAYEConfigViewProps = {
-  planConfigs: PlanConfig[];
-  setPlanConfigs: React.Dispatch<React.SetStateAction<PlanConfig[]>>;
-  participants: Participant[];
-  setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
-};
 
   const openEdit = (index: number) => {
     const source = planConfigs[index];
