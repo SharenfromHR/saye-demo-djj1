@@ -170,34 +170,75 @@ const [view, setView] = useState<
   const [enrolment, setEnrolment] = useState<EnrollmentState | null>(null);
 
   const enriched = useMemo(() => {
-    const now = new Date();
+  const now = new Date();
+  const participant = activeParticipant;
+  if (!participant) return [];
 
-    const livePlans = planConfigs
-      .map((p, configIndex) => ({ ...p, configIndex }))
-      .filter((p) => p.status === "live");
+  const liveConfigs = planConfigs
+    .map((p, configIndex) => ({ ...p, configIndex }))
+    .filter((p) => p.status === "live");
 
-    return livePlans
-      .map((p) => {
-        const start = new Date(p.contractStart);
-        const monthsSinceStart = Math.max(
-          0,
-          (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
-        );
-        const savingsAmount = Math.max(0, p.monthlyContribution * (monthsSinceStart - p.missedPayments));
-        const optionsGranted = (p.monthlyContribution * p.termMonths) / p.optionPrice;
-        const maturityDate = computeMaturity(p.contractStart, p.termMonths, p.missedPayments);
-        const estimatedGain = Math.max(0, (CURRENT_PRICE_GBP - p.optionPrice) * optionsGranted);
-        return {
-          ...p,
-          monthsSinceStart,
-          savingsAmount,
-          optionsGranted,
-          maturityDate,
-          estimatedGain,
-        };
-      })
-      .sort((a, b) => new Date(a.contractStart).getTime() - new Date(b.contractStart).getTime());
-  }, [planConfigs]);
+  const rows = liveConfigs
+    .map((cfg) => {
+      const contract = participant.contracts.find(
+        (c) => c.planConfigIndex === cfg.configIndex
+      );
+
+      // If they don't have a contract for this plan, don't show it
+      if (!contract || contract.monthlyContribution <= 0) {
+        return null;
+      }
+
+      const start = new Date(cfg.contractStart);
+      const monthsSinceStart = Math.max(
+        0,
+        (now.getFullYear() - start.getFullYear()) * 12 +
+          (now.getMonth() - start.getMonth())
+      );
+
+      const monthlyContribution = contract.monthlyContribution;
+      const missedPayments = contract.missedPayments || 0;
+
+      const savingsAmount = Math.max(
+        0,
+        monthlyContribution * (monthsSinceStart - missedPayments)
+      );
+
+      const optionsGranted =
+        (monthlyContribution * cfg.termMonths) / cfg.optionPrice;
+
+      const maturityDate = computeMaturity(
+        cfg.contractStart,
+        cfg.termMonths,
+        missedPayments
+      );
+
+      const estimatedGain = Math.max(
+        0,
+        (CURRENT_PRICE_GBP - cfg.optionPrice) * optionsGranted
+      );
+
+      return {
+        ...cfg,
+        configIndex: cfg.configIndex,
+        monthsSinceStart,
+        savingsAmount,
+        optionsGranted,
+        maturityDate,
+        estimatedGain,
+        monthlyContribution,
+        missedPayments,
+        paused: contract.paused,
+      };
+    })
+    .filter(Boolean) as any[];
+
+  return rows.sort(
+    (a, b) =>
+      new Date(a.contractStart).getTime() -
+      new Date(b.contractStart).getTime()
+  );
+}, [planConfigs, activeParticipant]);
 
   const buildSchedules = (p: (typeof enriched)[number]) => {
     const start = new Date(p.contractStart);
@@ -280,11 +321,38 @@ const [view, setView] = useState<
   const openCancel = (idx: number) => setModal({ type: "cancel", planIdx: idx });
   const closeModal = () => setModal({ type: null, planIdx: null });
 
-  const confirmModal = () => {
+    const confirmModal = () => {
     const idx = modal.planIdx;
-    if (idx == null) return closeModal();
+    if (idx == null || !activeParticipant) {
+      closeModal();
+      return;
+    }
+
     const plan = enriched[idx];
-    if (!plan) return closeModal();
+    if (!plan) {
+      closeModal();
+      return;
+    }
+
+    if (modal.type === "pause" || modal.type === "unpause") {
+      const shouldPause = modal.type === "pause";
+      setParticipants((prev) =>
+        prev.map((p) => {
+          if (p.id !== activeParticipant.id) return p;
+          const contracts = p.contracts.map((c) =>
+            c.planConfigIndex === plan.configIndex ? { ...c, paused: shouldPause } : c
+          );
+          return { ...p, contracts };
+        })
+      );
+    } else if (modal.type === "cancel") {
+      alert(
+        `Cancel & refund requested for ${plan.grantName} for ${activeParticipant.name}. You will lose the right to exercise options.`
+      );
+    }
+
+    closeModal();
+  };
 
     if (modal.type === "pause") {
       setPlanConfigs((prev) =>
