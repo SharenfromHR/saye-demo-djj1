@@ -105,7 +105,10 @@ const [view, setView] = useState<
  type Participant = {
   id: string;
   name: string;
+  employeeId?: string;
   email?: string;
+  location?: string;
+  currency?: string;
   entity?: string;
   country?: string;
   grantDate?: string;
