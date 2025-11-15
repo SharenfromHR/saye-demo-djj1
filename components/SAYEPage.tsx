@@ -503,6 +503,28 @@ const [view, setView] = useState<
           <main className="flex-1">
             {view === "participant" && (
               <div className="space-y-5">
+                        <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2 text-slate-500">
+            <span>Viewing as</span>
+            <select
+              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
+              value={activeParticipantId ?? ""}
+              onChange={(e) => setActiveParticipantId(e.target.value || null)}
+            >
+              {participants.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.employeeId})
+                </option>
+              ))}
+            </select>
+          </div>
+          {activeParticipant && (
+            <div className="text-xs text-slate-500">
+              {activeParticipant.email} · {activeParticipant.location} ·{" "}
+              {activeParticipant.currency}
+            </div>
+          )}
+        </div>
                 {openInvites.length > 0 && activeInvite && (
                   <Card className="rounded-2xl border-none shadow-sm mb-1 bg-emerald-50/70 ring-1 ring-emerald-100">
                     <CardContent className="p-4 flex items-center justify-between gap-4">
