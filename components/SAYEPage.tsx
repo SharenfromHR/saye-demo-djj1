@@ -153,7 +153,7 @@ const [participants, setParticipants] = useState<Participant[]>([
     planIdx: number | null;
   }>({ type: null, planIdx: null });
 
-  const [showInvitePanel, setShowInvitePanel] = useState(false);
+    const [showInvitePanel, setShowInvitePanel] = useState(false);
   const [enrolment, setEnrolment] = useState<EnrollmentState | null>(null);
 
   const enriched = useMemo(() => {
@@ -164,26 +164,43 @@ const [participants, setParticipants] = useState<Participant[]>([
       .filter((p) => p.status === "live");
 
     return livePlans
-  .map((p) => {
-    const start = new Date(p.contractStart);
-    const monthsSinceStart = Math.max(
-      0,
-      (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
-    );
-    const savingsAmount = Math.max(0, p.monthlyContribution * (monthsSinceStart - p.missedPayments));
-    const optionsGranted = (p.monthlyContribution * p.termMonths) / p.optionPrice;
-    const maturityDate = computeMaturity(p.contractStart, p.termMonths, p.missedPayments);
-    const estimatedGain = Math.max(0, (CURRENT_PRICE_GBP - p.optionPrice) * optionsGranted);
-    return {
-      ...p,
-      monthsSinceStart,
-      savingsAmount,
-      optionsGranted,
-      maturityDate,
-      estimatedGain,
-    };
-  })
-  .sort((a, b) => new Date(a.contractStart).getTime() - new Date(b.contractStart).getTime());
+      .map((p) => {
+        const start = new Date(p.contractStart);
+        const monthsSinceStart = Math.max(
+          0,
+          (now.getFullYear() - start.getFullYear()) * 12 +
+            (now.getMonth() - start.getMonth())
+        );
+        const savingsAmount = Math.max(
+          0,
+          p.monthlyContribution * (monthsSinceStart - p.missedPayments)
+        );
+        const optionsGranted =
+          (p.monthlyContribution * p.termMonths) / p.optionPrice;
+        const maturityDate = computeMaturity(
+          p.contractStart,
+          p.termMonths,
+          p.missedPayments
+        );
+        const estimatedGain = Math.max(
+          0,
+          (CURRENT_PRICE_GBP - p.optionPrice) * optionsGranted
+        );
+
+        return {
+          ...p, // <-- this is what `.p` was *trying* to be
+          monthsSinceStart,
+          savingsAmount,
+          optionsGranted,
+          maturityDate,
+          estimatedGain,
+        };
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.contractStart).getTime() -
+          new Date(b.contractStart).getTime()
+      );
   }, [planConfigs]);
 
   const buildSchedules = (p: (typeof enriched)[number]) => {
@@ -520,7 +537,7 @@ const [participants, setParticipants] = useState<Participant[]>([
                         <div className="flex flex-wrap items-end gap-4">
                           <div className="space-y-1">
                             <label className="text-xs font-medium text-slate-600">Monthly savings (£)</label>
-                            <input
+                                                        <input
                               type="number"
                               min={activeInvite.minMonthly}
                               max={activeInvite.maxMonthly}
@@ -529,9 +546,12 @@ const [participants, setParticipants] = useState<Participant[]>([
                               value={enrolment.amount}
                               onChange={(e) => {
                                 const v = Number(e.target.value) || 0;
-                                setEnrolment((prev) => (prev ? { ...prev, amount: v } : prev));
+                                setEnrolment((prev) =>
+                                  prev ? { ...prev, amount: v } : prev
+                                );
                               }}
                             />
+
                           </div>
                           <div className="text-xs text-slate-500">
                             <div>
