@@ -115,6 +115,8 @@ const [view, setView] = useState<
   termYears?: number;
   monthlyContribution?: number;
   status?: string;
+  contracts?: any[];
+  [key: string]: any;
 };
   
 const [participants, setParticipants] = useState<Participant[]>([
