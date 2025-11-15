@@ -281,50 +281,76 @@ const [view, setView] = useState<
                 </div>
               ))}
 
-              <div className="space-y-1">
-                <button
-                  type="button"
-                  onClick={() => setSayeMenuOpen((o) => !o)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm transition ${
-                    view === "participant" || view === "config"
-                      ? "bg-white shadow-sm ring-1 ring-slate-200 text-slate-900"
-                      : "text-slate-600 hover:bg-white/60"
-                  }`}
-                >
-                  <span>SAYE</span>
-                  <ChevronDown
-                    className={`h-4 w-4 transition-transform ${
-                      sayeMenuOpen ? "rotate-180 text-emerald-600" : "text-slate-400"
-                    }`}
-                  />
-                </button>
-                {sayeMenuOpen && (
-                  <div className="ml-6 space-y-1">
-                    <button
-                      type="button"
-                      onClick={() => setView("participant")}
-                      className={`w-full text-left px-3 py-1.5 rounded-lg text-xs ${
-                        view === "participant"
-                          ? "bg-slate-900 text-white"
-                          : "text-slate-600 hover:bg-white/70"
-                      }`}
-                    >
-                      Participant view
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setView("config")}
-                      className={`w-full text-left px-3 py-1.5 rounded-lg text-xs ${
-                        view === "config"
-                          ? "bg-slate-900 text-white"
-                          : "text-slate-600 hover:bg-white/70"
-                      }`}
-                    >
-                      Configuration
-                    </button>
-                  </div>
-                )}
-              </div>
+             <div className="space-y-1">
+  <button
+    type="button"
+    onClick={() => setSayeMenuOpen((o) => !o)}
+    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm transition ${
+      view === "participant" ||
+      view === "config" ||
+      view === "reports" ||
+      view === "imports"
+        ? "bg-white shadow-sm ring-1 ring-slate-200 text-slate-900"
+        : "text-slate-600 hover:bg-white/60"
+    }`}
+  >
+    <span>SAYE</span>
+    <ChevronDown
+      className={`h-4 w-4 transition-transform ${
+        sayeMenuOpen ? "rotate-180 text-emerald-600" : "text-slate-400"
+      }`}
+    />
+  </button>
+  {sayeMenuOpen && (
+    <div className="ml-6 space-y-1">
+      <button
+        type="button"
+        onClick={() => setView("participant")}
+        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs ${
+          view === "participant"
+            ? "bg-slate-900 text-white"
+            : "text-slate-600 hover:bg-white/70"
+        }`}
+      >
+        Participant view
+      </button>
+      <button
+        type="button"
+        onClick={() => setView("config")}
+        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs ${
+          view === "config"
+            ? "bg-slate-900 text-white"
+            : "text-slate-600 hover:bg-white/70"
+        }`}
+      >
+        Configuration
+      </button>
+      <button
+        type="button"
+        onClick={() => setView("reports")}
+        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs ${
+          view === "reports"
+            ? "bg-slate-900 text-white"
+            : "text-slate-600 hover:bg-white/70"
+        }`}
+      >
+        Reports
+      </button>
+      <button
+        type="button"
+        onClick={() => setView("imports")}
+        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs ${
+          view === "imports"
+            ? "bg-slate-900 text-white"
+            : "text-slate-600 hover:bg-white/70"
+        }`}
+      >
+        Imports
+      </button>
+    </div>
+  )}
+</div>
+
 
               <div className="px-3 py-2 rounded-xl text-slate-600 hover:bg:white/60 cursor-default">
                 Support
