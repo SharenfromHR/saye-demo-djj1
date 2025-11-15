@@ -844,6 +844,438 @@ const [view, setView] = useState<
     </div>
   );
 }
+type ReportKey = "summary" | "missed" | "maturity" | "cap";
+
+function SAYEReportsView({
+  plans,
+  planConfigs,
+}: {
+  plans: any[];
+  planConfigs: PlanConfig[];
+}) {
+  const [activeReport, setActiveReport] = useState<ReportKey>("summary");
+
+  const totalMonthly = plans.reduce(
+    (sum: number, p: any) => sum + (p.monthlyContribution || 0),
+    0
+  );
+  const CAP = 500;
+
+  return (
+    <div className="space-y-4">
+      <Card className="rounded-2xl border-none shadow-sm">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight">
+                SAYE reports
+              </h1>
+              <p className="text-xs text-slate-500 mt-1">
+                Run quick, pre-configured reports over your SAYE contracts and
+                offerings.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={activeReport === "summary" ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setActiveReport("summary")}
+            >
+              Active contracts
+            </Button>
+            <Button
+              variant={activeReport === "missed" ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setActiveReport("missed")}
+            >
+              Missed payments
+            </Button>
+            <Button
+              variant={activeReport === "maturity" ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setActiveReport("maturity")}
+            >
+              Maturity calendar
+            </Button>
+            <Button
+              variant={activeReport === "cap" ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setActiveReport("cap")}
+            >
+              Contribution cap usage
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {activeReport === "summary" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6">
+            <h2 className="text-sm font-semibold mb-3">
+              Active contracts summary
+            </h2>
+            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50/80">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Plan
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Start date
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Maturity
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      £/mo
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Saved
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Options
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Est. gain
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {plans.map((p: any, i: number) => (
+                    <tr key={i}>
+                      <td className="px-3 py-2 text-xs font-medium text-slate-800">
+                        {p.grantName}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {new Date(p.contractStart).toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {p.maturityDate.toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {formatMoney(p.monthlyContribution)}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {formatMoney(p.savingsAmount)}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {Math.round(p.optionsGranted).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 text-xs font-medium text-emerald-700">
+                        {formatMoney(p.estimatedGain)}
+                      </td>
+                    </tr>
+                  ))}
+                  {plans.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-3 py-4 text-xs text-slate-500 text-center"
+                      >
+                        No live SAYE contracts.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeReport === "missed" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6">
+            <h2 className="text-sm font-semibold mb-3">
+              Missed payments and maturity impact
+            </h2>
+            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50/80">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Plan
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Missed payments
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Current maturity
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Note
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {plans
+                    .filter((p: any) => (p.missedPayments || 0) > 0)
+                    .map((p: any, i: number) => (
+                      <tr key={i}>
+                        <td className="px-3 py-2 text-xs font-medium text-slate-800">
+                          {p.grantName}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.missedPayments}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.maturityDate.toLocaleDateString()}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          Each missed payment pushes maturity back by one month.
+                        </td>
+                      </tr>
+                    ))}
+                  {plans.filter((p: any) => (p.missedPayments || 0) > 0).length ===
+                    0 && (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-3 py-4 text-xs text-slate-500 text-center"
+                      >
+                        No missed payments across active contracts.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeReport === "maturity" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6">
+            <h2 className="text-sm font-semibold mb-3">
+              Maturity calendar (live plans)
+            </h2>
+            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50/80">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Plan
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Maturity date
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Term
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      £/mo
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Saved (to date)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {plans
+                    .slice()
+                    .sort(
+                      (a: any, b: any) =>
+                        a.maturityDate.getTime() - b.maturityDate.getTime()
+                    )
+                    .map((p: any, i: number) => (
+                      <tr key={i}>
+                        <td className="px-3 py-2 text-xs font-medium text-slate-800">
+                          {p.grantName}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.maturityDate.toLocaleDateString()}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.termYears} years
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {formatMoney(p.monthlyContribution)}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {formatMoney(p.savingsAmount)}
+                        </td>
+                      </tr>
+                    ))}
+                  {plans.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-3 py-4 text-xs text-slate-500 text-center"
+                      >
+                        No live SAYE plans.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeReport === "cap" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6 space-y-4">
+            <h2 className="text-sm font-semibold">
+              Contribution cap usage (per employee)
+            </h2>
+            <p className="text-xs text-slate-500">
+              This demo assumes a £{CAP.toFixed(0)} per-month SAYE cap per
+              employee across all contracts.
+            </p>
+            <div className="flex items-center justify-between text-sm">
+              <div>
+                <div className="text-xs text-slate-500 mb-1">
+                  Total current monthly across live plans
+                </div>
+                <div className="text-base font-semibold">
+                  {formatMoney(totalMonthly)}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">
+                  Cap utilisation
+                </div>
+                <div className="text-base font-semibold">
+                  {Math.round((totalMonthly / CAP) * 100)}%
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function SAYEImportsView({ planConfigs }: { planConfigs: PlanConfig[] }) {
+  const [selectedPlanIndex, setSelectedPlanIndex] = useState<number>(0);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    setStatus(
+      "File loaded into the demo UI. In a real system this would be validated and queued for import."
+    );
+  };
+
+  const selectedPlan = planConfigs[selectedPlanIndex];
+
+  return (
+    <div className="space-y-4">
+      <Card className="rounded-2xl border-none shadow-sm">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight">
+                SAYE imports
+              </h1>
+              <p className="text-xs text-slate-500 mt-1">
+                Load contribution files against a specific SAYE plan to update
+                savings positions.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600">
+                Target SAYE plan
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={selectedPlanIndex}
+                onChange={(e) =>
+                  setSelectedPlanIndex(Number(e.target.value) || 0)
+                }
+              >
+                {planConfigs.map((p, i) => (
+                  <option key={i} value={i}>
+                    {p.grantName} ({p.termYears}y, opt px {formatMoney(
+                      p.optionPrice
+                    )}
+                    )
+                  </option>
+                ))}
+              </select>
+              {selectedPlan && (
+                <p className="text-[11px] text-slate-500">
+                  Invite window:{" "}
+                  {new Date(selectedPlan.inviteOpen).toLocaleString()} –{" "}
+                  {new Date(selectedPlan.inviteClose).toLocaleString()}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600">
+                Contribution file (.csv)
+              </label>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileChange}
+                className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border file:border-slate-300 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-slate-50"
+              />
+              <p className="text-[11px] text-slate-500">
+                Expected columns (demo): employee ID, name, payroll month,
+                amount, currency.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-2">
+            <div className="text-[11px] text-slate-500">
+              This is a front-end demo only – no data is stored or sent
+              anywhere.
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="h-8 px-3 text-xs"
+                disabled={!fileName}
+                onClick={() =>
+                  setStatus(
+                    "Validation complete (demo). No issues detected in the sample file."
+                  )
+                }
+              >
+                Validate file
+              </Button>
+              <Button
+                className="h-8 px-3 text-xs"
+                disabled={!fileName}
+                onClick={() =>
+                  setStatus(
+                    "Import simulated. In a real system this would push contributions into the plan ledger."
+                  )
+                }
+              >
+                Import contributions
+              </Button>
+            </div>
+          </div>
+
+          {status && (
+            <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
+              <div className="font-medium mb-0.5">
+                {fileName ? fileName : "No file selected"}
+              </div>
+              <div>{status}</div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 interface ModalProps {
   open: boolean;
