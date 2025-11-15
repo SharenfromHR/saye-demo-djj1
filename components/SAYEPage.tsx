@@ -103,19 +103,11 @@ const initialParticipants: Participant[] = [
 ];
 
 export default function SAYEPage() {
-const [view, setView] = useState<
-  "participant" | "config" | "reports" | "imports"
->("participant");
+  const [view, setView] = useState<"participant" | "config">("participant");
   const [sayeMenuOpen, setSayeMenuOpen] = useState(true);
   const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
-  const [planConfigs, setPlanConfigs] = useState<PlanConfig[]>([
-    const [participants, setParticipants] = useState<Participant[]>(initialParticipants);
-  const [activeParticipantId, setActiveParticipantId] = useState<string | null>(
-    initialParticipants[0]?.id ?? null
-  );  
-  const activeParticipant =
-    participants.find((p) => p.id === activeParticipantId) ?? participants[0] ?? null;
 
+  const [planConfigs, setPlanConfigs] = useState<PlanConfig[]>([
     {
       grantName: "2024 SAYE Plan",
       inviteOpen: "2024-02-01T09:00",
@@ -156,10 +148,22 @@ const [view, setView] = useState<
     },
   ]);
 
+  const [participants, setParticipants] = useState<Participant[]>(initialParticipants);
+
+  const [activeParticipantId, setActiveParticipantId] = useState<string | null>(
+    initialParticipants[0]?.id ?? null
+  );
+
+  const activeParticipant =
+    participants.find((p) => p.id === activeParticipantId) ?? participants[0] ?? null;
+
   const [modal, setModal] = useState<{
     type: null | "pause" | "unpause" | "cancel";
     planIdx: number | null;
-  }>({ type: null, planIdx: null });
+  }>({
+    type: null,
+    planIdx: null,
+  });
 
   const [showInvitePanel, setShowInvitePanel] = useState(false);
   const [enrolment, setEnrolment] = useState<EnrollmentState | null>(null);
