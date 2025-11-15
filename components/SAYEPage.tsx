@@ -5,7 +5,6 @@ import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Info, ChevronDown } from "lucide-react";
 
-
 const formatMoney = (n: number, ccy = "GBP") =>
   new Intl.NumberFormat(undefined, {
     style: "currency",
@@ -13,7 +12,11 @@ const formatMoney = (n: number, ccy = "GBP") =>
     maximumFractionDigits: 2,
   }).format(n);
 
-function computeMaturity(contractStartISO: string, termMonths: number, missedPayments = 0): Date {
+function computeMaturity(
+  contractStartISO: string,
+  termMonths: number,
+  missedPayments = 0
+): Date {
   const start = new Date(contractStartISO);
   const y = start.getFullYear();
   const m = start.getMonth();
@@ -44,7 +47,7 @@ type PlanConfig = {
 };
 
 type ParticipantContract = {
-  planConfigIndex: number;        // index into planConfigs
+  planConfigIndex: number; // index into planConfigs
   monthlyContribution: number;
   missedPayments: number;
   paused: boolean;
@@ -98,37 +101,6 @@ const initialParticipants: Participant[] = [
     contracts: [],
   },
 ];
-
-  grantName: string;
-  inviteOpen: string; // ISO datetime-local string
-  inviteClose: string;
-  grantDate: string; // ISO date string
-  contractStart: string; // ISO date string
-  optionPrice: number;
-  bonusRate: number;
-  minMonthly: number; // minimum monthly contribution allowed in invite
-  maxMonthly: number; // maximum monthly contribution allowed in invite
-  termYears: 3 | 5;
-  ticker: string;
-  exchange: string;
-  termMonths: number; // 36 or 60 typically
-  // Below are really contract-level in real life, but for the mock they sit on the plan
-  monthlyContribution: number; // illustrative contribution for example contract
-  missedPayments: number;
-  status: PlanStatus;
-  paused: boolean;
-};
-
-const CURRENT_PRICE_GBP = 1.4;
-const TICKER = "DJJ";
-const COMPANY = "DJJ Ltd";
-
-interface EnrollmentState {
-  amount: number;
-  accepted: boolean;
-  read: boolean;
-  hasApplied: boolean;
-}
 
 export default function SAYEPage() {
 const [view, setView] = useState<
