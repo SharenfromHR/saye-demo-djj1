@@ -101,6 +101,36 @@ const [view, setView] = useState<
       paused: false,
     },
   ]);
+ 
+const [participants, setParticipants] = useState<Participant[]>([
+  {
+    id: "P001",
+    name: "Anita Spreadsheet",
+    employeeId: "100123",
+    email: "anita.spreadsheet@example.com",
+    location: "UK",
+    currency: "GBP",
+    contracts: [],
+  },
+  {
+    id: "P002",
+    name: "Bill Ding",
+    employeeId: "100456",
+    email: "bill.ding@example.com",
+    location: "UK",
+    currency: "GBP",
+    contracts: [],
+  },
+  {
+    id: "P003",
+    name: "Sal Monella",
+    employeeId: "100789",
+    email: "sal.monella@example.com",
+    location: "NO",
+    currency: "NOK",
+    contracts: [],
+  }
+]);
 
   const [modal, setModal] = useState<{
     type: null | "pause" | "unpause" | "cancel";
@@ -1330,10 +1360,23 @@ type SAYEConfigViewProps = {
   setPlanConfigs: React.Dispatch<React.SetStateAction<PlanConfig[]>>;
 };
 
-function SAYEConfigView({ planConfigs, setPlanConfigs }: SAYEConfigViewProps) {
+function SAYEConfigView({
+  planConfigs,
+  setPlanConfigs,
+  participants,
+  setParticipants,
+}: SAYEConfigViewProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<PlanConfig | null>(null);
+import { Participant } from "./SAYEPage";
+
+type SAYEConfigViewProps = {
+  planConfigs: PlanConfig[];
+  setPlanConfigs: React.Dispatch<React.SetStateAction<PlanConfig[]>>;
+  participants: Participant[];
+  setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
+};
 
   const openEdit = (index: number) => {
     const source = planConfigs[index];
