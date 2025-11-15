@@ -23,7 +23,59 @@ function computeMaturity(contractStartISO: string, termMonths: number, missedPay
 
 type PlanStatus = "invite" | "live";
 
-type PlanConfig = {
+type PlanConfig = {type ParticipantContract = {
+  planConfigIndex: number;        // index into planConfigs
+  monthlyContribution: number;
+  missedPayments: number;
+  paused: boolean;
+};
+
+type Participant = {
+  id: string;
+  name: string;
+  employeeId: string;
+  email: string;
+  location?: string;
+  currency: string;
+  contracts: ParticipantContract[];
+};
+
+// Seed some fake people
+const initialParticipants: Participant[] = [
+  {
+    id: "P001",
+    name: "Alex Johnson",
+    employeeId: "100123",
+    email: "alex.johnson@example.com",
+    location: "UK",
+    currency: "GBP",
+    contracts: [
+      { planConfigIndex: 0, monthlyContribution: 150, missedPayments: 0, paused: false },
+      { planConfigIndex: 1, monthlyContribution: 100, missedPayments: 1, paused: false },
+    ],
+  },
+  {
+    id: "P002",
+    name: "Maria Lopez",
+    employeeId: "100456",
+    email: "maria.lopez@example.com",
+    location: "ES",
+    currency: "EUR",
+    contracts: [
+      { planConfigIndex: 1, monthlyContribution: 75, missedPayments: 0, paused: false },
+    ],
+  },
+  {
+    id: "P003",
+    name: "Tom Okoye",
+    employeeId: "100789",
+    email: "tom.okoye@example.com",
+    location: "NO",
+    currency: "NOK",
+    contracts: [],
+  },
+];
+
   grantName: string;
   inviteOpen: string; // ISO datetime-local string
   inviteClose: string;
