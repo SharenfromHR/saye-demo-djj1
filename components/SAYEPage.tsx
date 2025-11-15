@@ -23,11 +23,41 @@ function computeMaturity(contractStartISO: string, termMonths: number, missedPay
 
 type PlanStatus = "invite" | "live";
 
-type PlanConfig = {type ParticipantContract = {
+type PlanConfig = {
+  grantName: string;
+  inviteOpen: string; // ISO datetime-local string
+  inviteClose: string;
+  grantDate: string; // ISO date string
+  contractStart: string; // ISO date string
+  optionPrice: number;
+  bonusRate: number;
+  minMonthly: number; // minimum monthly contribution allowed in invite
+  maxMonthly: number; // maximum monthly contribution allowed in invite
+  termYears: 3 | 5;
+  ticker: string;
+  exchange: string;
+  termMonths: number; // 36 or 60 typically
+  monthlyContribution: number; // illustrative contribution for example contract
+  missedPayments: number;
+  status: PlanStatus;
+  paused: boolean;
+};
+
+type ParticipantContract = {
   planConfigIndex: number;        // index into planConfigs
   monthlyContribution: number;
   missedPayments: number;
   paused: boolean;
+};
+
+type Participant = {
+  id: string;
+  name: string;
+  employeeId: string;
+  email: string;
+  location?: string;
+  currency: string;
+  contracts: ParticipantContract[];
 };
 
 type Participant = {
