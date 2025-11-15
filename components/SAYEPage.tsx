@@ -927,8 +927,13 @@ const [view, setView] = useState<
             )}
 
             {view === "config" && (
-              <SAYEConfigView planConfigs={planConfigs} setPlanConfigs={setPlanConfigs} />
-            )}
+  <SAYEConfigView
+    planConfigs={planConfigs}
+    setPlanConfigs={setPlanConfigs}
+    participants={participants}
+    setParticipants={setParticipants}
+  />
+)}
              {view === "reports" && (
     <SAYEReportsView plans={enriched} planConfigs={planConfigs} />
   )}
@@ -1477,9 +1482,16 @@ function Modal({
 type SAYEConfigViewProps = {
   planConfigs: PlanConfig[];
   setPlanConfigs: React.Dispatch<React.SetStateAction<PlanConfig[]>>;
+  participants: Participant[];
+  setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
 };
 
-function SAYEConfigView({ planConfigs, setPlanConfigs }: SAYEConfigViewProps) {
+function SAYEConfigView({ 
+  planConfigs, 
+  setPlanConfigs,
+  participants,
+  setparticipants,
+}: SAYEConfigViewProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<PlanConfig | null>(null);
@@ -1557,13 +1569,23 @@ function SAYEConfigView({ planConfigs, setPlanConfigs }: SAYEConfigViewProps) {
   return (
     <div className="space-y-4">
       <div className="rounded-full bg-slate-100 p-1 flex max-w-xl mb-4">
-        <button className="flex-1 text-xs font-medium px-4 py-2 rounded-full bg-white shadow-sm">
-          Plan overview
-        </button>
-        <button className="flex-1 text-xs font-medium px-4 py-2 rounded-full text-slate-500">
-          Participants
-        </button>
-      </div>
+  <button
+    className={`flex-1 text-xs font-medium px-4 py-2 rounded-full ${
+      tab === "plans" ? "bg-white shadow-sm" : "text-slate-500"
+    }`}
+    onClick={() => setTab("plans")}
+  >
+    Plan overview
+  </button>
+  <button
+    className={`flex-1 text-xs font-medium px-4 py-2 rounded-full ${
+      tab === "participants" ? "bg-white shadow-sm" : "text-slate-500"
+    }`}
+    onClick={() => setTab("participants")}
+  >
+    Participants
+  </button>
+</div>
 
       <Card className="rounded-2xl border-none shadow-sm">
         <CardContent className="p-6 space-y-6">
