@@ -780,6 +780,13 @@ const [view, setView] = useState<
             {view === "config" && (
               <SAYEConfigView planConfigs={planConfigs} setPlanConfigs={setPlanConfigs} />
             )}
+             {view === "reports" && (
+    <SAYEReportsView plans={enriched} planConfigs={planConfigs} />
+  )}
+
+  {view === "imports" && (
+    <SAYEImportsView planConfigs={planConfigs} />
+  )}
           </main>
         </div>
       </div>
