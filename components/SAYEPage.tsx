@@ -101,7 +101,19 @@ const [view, setView] = useState<
       paused: false,
     },
   ]);
- 
+  
+ type Participant = {
+  id: string;
+  name: string;
+  email?: string;
+  entity?: string;
+  country?: string;
+  grantDate?: string;
+  termYears?: number;
+  monthlyContribution?: number;
+  status?: string;
+};
+  
 const [participants, setParticipants] = useState<Participant[]>([
   {
     id: "P001",
