@@ -5,6 +5,7 @@ import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Info, ChevronDown } from "lucide-react";
 
+
 const formatMoney = (n: number, ccy = "GBP") =>
   new Intl.NumberFormat(undefined, {
     style: "currency",
@@ -12,11 +13,7 @@ const formatMoney = (n: number, ccy = "GBP") =>
     maximumFractionDigits: 2,
   }).format(n);
 
-function computeMaturity(
-  contractStartISO: string,
-  termMonths: number,
-  missedPayments = 0
-): Date {
+function computeMaturity(contractStartISO: string, termMonths: number, missedPayments = 0): Date {
   const start = new Date(contractStartISO);
   const y = start.getFullYear();
   const m = start.getMonth();
@@ -40,73 +37,30 @@ type PlanConfig = {
   ticker: string;
   exchange: string;
   termMonths: number; // 36 or 60 typically
+  // Below are really contract-level in real life, but for the mock they sit on the plan
   monthlyContribution: number; // illustrative contribution for example contract
   missedPayments: number;
   status: PlanStatus;
   paused: boolean;
 };
 
-type ParticipantContract = {
-  planConfigIndex: number; // index into planConfigs
-  monthlyContribution: number;
-  missedPayments: number;
-  paused: boolean;
-};
-
-type Participant = {
-  id: string;
-  name: string;
-  employeeId: string;
-  email: string;
-  location?: string;
-  currency: string;
-  contracts: ParticipantContract[];
-};
-
 const CURRENT_PRICE_GBP = 1.4;
 const TICKER = "DJJ";
 const COMPANY = "DJJ Ltd";
 
-const initialParticipants: Participant[] = [
-  {
-    id: "P001",
-    name: "Alex Johnson",
-    employeeId: "100123",
-    email: "alex.johnson@example.com",
-    location: "UK",
-    currency: "GBP",
-    contracts: [
-      { planConfigIndex: 0, monthlyContribution: 150, missedPayments: 0, paused: false },
-      { planConfigIndex: 1, monthlyContribution: 100, missedPayments: 1, paused: false },
-    ],
-  },
-  {
-    id: "P002",
-    name: "Maria Lopez",
-    employeeId: "100456",
-    email: "maria.lopez@example.com",
-    location: "ES",
-    currency: "EUR",
-    contracts: [
-      { planConfigIndex: 1, monthlyContribution: 75, missedPayments: 0, paused: false },
-    ],
-  },
-  {
-    id: "P003",
-    name: "Tom Okoye",
-    employeeId: "100789",
-    email: "tom.okoye@example.com",
-    location: "NO",
-    currency: "NOK",
-    contracts: [],
-  },
-];
+interface EnrollmentState {
+  amount: number;
+  accepted: boolean;
+  read: boolean;
+  hasApplied: boolean;
+}
 
 export default function SAYEPage() {
-  const [view, setView] = useState<"participant" | "config">("participant");
+const [view, setView] = useState<
+  "participant" | "config" | "reports" | "imports"
+>("participant");
   const [sayeMenuOpen, setSayeMenuOpen] = useState(true);
   const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
-
   const [planConfigs, setPlanConfigs] = useState<PlanConfig[]>([
     {
       grantName: "2024 SAYE Plan",
@@ -148,96 +102,43 @@ export default function SAYEPage() {
     },
   ]);
 
-  const [participants, setParticipants] = useState<Participant[]>(initialParticipants);
-
-  const [activeParticipantId, setActiveParticipantId] = useState<string | null>(
-    initialParticipants[0]?.id ?? null
-  );
-
-  const activeParticipant =
-    participants.find((p) => p.id === activeParticipantId) ?? participants[0] ?? null;
-
   const [modal, setModal] = useState<{
     type: null | "pause" | "unpause" | "cancel";
     planIdx: number | null;
-  }>({
-    type: null,
-    planIdx: null,
-  });
+  }>({ type: null, planIdx: null });
 
   const [showInvitePanel, setShowInvitePanel] = useState(false);
   const [enrolment, setEnrolment] = useState<EnrollmentState | null>(null);
 
   const enriched = useMemo(() => {
-  const now = new Date();
-  const participant = activeParticipant;
-  if (!participant) return [];
+    const now = new Date();
 
-  const liveConfigs = planConfigs
-    .map((p, configIndex) => ({ ...p, configIndex }))
-    .filter((p) => p.status === "live");
+    const livePlans = planConfigs
+      .map((p, configIndex) => ({ ...p, configIndex }))
+      .filter((p) => p.status === "live");
 
-  const rows = liveConfigs
-    .map((cfg) => {
-      const contract = participant.contracts.find(
-        (c) => c.planConfigIndex === cfg.configIndex
-      );
-
-      // If they don't have a contract for this plan, don't show it
-      if (!contract || contract.monthlyContribution <= 0) {
-        return null;
-      }
-
-      const start = new Date(cfg.contractStart);
-      const monthsSinceStart = Math.max(
-        0,
-        (now.getFullYear() - start.getFullYear()) * 12 +
-          (now.getMonth() - start.getMonth())
-      );
-
-      const monthlyContribution = contract.monthlyContribution;
-      const missedPayments = contract.missedPayments || 0;
-
-      const savingsAmount = Math.max(
-        0,
-        monthlyContribution * (monthsSinceStart - missedPayments)
-      );
-
-      const optionsGranted =
-        (monthlyContribution * cfg.termMonths) / cfg.optionPrice;
-
-      const maturityDate = computeMaturity(
-        cfg.contractStart,
-        cfg.termMonths,
-        missedPayments
-      );
-
-      const estimatedGain = Math.max(
-        0,
-        (CURRENT_PRICE_GBP - cfg.optionPrice) * optionsGranted
-      );
-
-      return {
-        ...cfg,
-        configIndex: cfg.configIndex,
-        monthsSinceStart,
-        savingsAmount,
-        optionsGranted,
-        maturityDate,
-        estimatedGain,
-        monthlyContribution,
-        missedPayments,
-        paused: contract.paused,
-      };
-    })
-    .filter(Boolean) as any[];
-
-  return rows.sort(
-    (a, b) =>
-      new Date(a.contractStart).getTime() -
-      new Date(b.contractStart).getTime()
-  );
-}, [planConfigs, activeParticipant]);
+    return livePlans
+      .map((p) => {
+        const start = new Date(p.contractStart);
+        const monthsSinceStart = Math.max(
+          0,
+          (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
+        );
+        const savingsAmount = Math.max(0, p.monthlyContribution * (monthsSinceStart - p.missedPayments));
+        const optionsGranted = (p.monthlyContribution * p.termMonths) / p.optionPrice;
+        const maturityDate = computeMaturity(p.contractStart, p.termMonths, p.missedPayments);
+        const estimatedGain = Math.max(0, (CURRENT_PRICE_GBP - p.optionPrice) * optionsGranted);
+        return {
+          ...p,
+          monthsSinceStart,
+          savingsAmount,
+          optionsGranted,
+          maturityDate,
+          estimatedGain,
+        };
+      })
+      .sort((a, b) => new Date(a.contractStart).getTime() - new Date(b.contractStart).getTime());
+  }, [planConfigs]);
 
   const buildSchedules = (p: (typeof enriched)[number]) => {
     const start = new Date(p.contractStart);
@@ -320,38 +221,11 @@ export default function SAYEPage() {
   const openCancel = (idx: number) => setModal({ type: "cancel", planIdx: idx });
   const closeModal = () => setModal({ type: null, planIdx: null });
 
-    const confirmModal = () => {
+  const confirmModal = () => {
     const idx = modal.planIdx;
-    if (idx == null || !activeParticipant) {
-      closeModal();
-      return;
-    }
-
+    if (idx == null) return closeModal();
     const plan = enriched[idx];
-    if (!plan) {
-      closeModal();
-      return;
-    }
-
-    if (modal.type === "pause" || modal.type === "unpause") {
-      const shouldPause = modal.type === "pause";
-      setParticipants((prev) =>
-        prev.map((p) => {
-          if (p.id !== activeParticipant.id) return p;
-          const contracts = p.contracts.map((c) =>
-            c.planConfigIndex === plan.configIndex ? { ...c, paused: shouldPause } : c
-          );
-          return { ...p, contracts };
-        })
-      );
-    } else if (modal.type === "cancel") {
-      alert(
-        `Cancel & refund requested for ${plan.grantName} for ${activeParticipant.name}. You will lose the right to exercise options.`
-      );
-    }
-
-    closeModal();
-  };
+    if (!plan) return closeModal();
 
     if (modal.type === "pause") {
       setPlanConfigs((prev) =>
@@ -384,17 +258,12 @@ export default function SAYEPage() {
     setEnrolment((prev) => (prev ? { ...prev, hasApplied: true } : prev));
   };
 
-  const canConfirmEnrolment = () => {
-  if (!activeInvite || !enrolment) return false;
-  if (!enrolment.accepted || !enrolment.read) return false;
-  if (
-    enrolment.amount < activeInvite.minMonthly ||
-    enrolment.amount > activeInvite.maxMonthly
-  ) {
-    return false;
-  }
-  return true;
-};
+  const canConfirmEnrolment = (() => {
+    if (!activeInvite || !enrolment) return false;
+    if (!enrolment.accepted || !enrolment.read) return false;
+    if (enrolment.amount < activeInvite.minMonthly || enrolment.amount > activeInvite.maxMonthly) return false;
+    return true;
+  })();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
@@ -507,28 +376,6 @@ export default function SAYEPage() {
           <main className="flex-1">
             {view === "participant" && (
               <div className="space-y-5">
-                        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2 text-slate-500">
-            <span>Viewing as</span>
-            <select
-              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
-              value={activeParticipantId ?? ""}
-              onChange={(e) => setActiveParticipantId(e.target.value || null)}
-            >
-              {participants.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.employeeId})
-                </option>
-              ))}
-            </select>
-          </div>
-          {activeParticipant && (
-            <div className="text-xs text-slate-500">
-              {activeParticipant.email} · {activeParticipant.location} ·{" "}
-              {activeParticipant.currency}
-            </div>
-          )}
-        </div>
                 {openInvites.length > 0 && activeInvite && (
                   <Card className="rounded-2xl border-none shadow-sm mb-1 bg-emerald-50/70 ring-1 ring-emerald-100">
                     <CardContent className="p-4 flex items-center justify-between gap-4">
@@ -690,7 +537,6 @@ export default function SAYEPage() {
                   </Card>
                 )}
 
-              {tab === "plans" && (
                 <Card className="rounded-2xl border-none shadow-sm">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
@@ -719,94 +565,6 @@ export default function SAYEPage() {
                     </div>
                   </CardContent>
                 </Card>
-              )}
-                {tab === "participants" && (
-  <Card className="rounded-2xl border-none shadow-sm">
-    <CardContent className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">
-            SAYE participants (demo)
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Fake accounts used to drive the participant view and reports.
-          </p>
-        </div>
-      </div>
-
-      <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
-        <table className="min-w-full text-xs">
-          <thead className="bg-slate-50/80">
-            <tr>
-              <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                Name
-              </th>
-              <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                Employee ID
-              </th>
-              <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                Email
-              </th>
-              <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                Location
-              </th>
-              <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                Currency
-              </th>
-              <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                Active plans
-              </th>
-              <th className="px-3 py-2 text-left font-semibold text-slate-500 text-right">
-                Total £/mo
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
-            {participants.map((p) => {
-              const activeContracts = p.contracts.filter(
-                (c) => c.monthlyContribution > 0
-              );
-              const totalMonthly = activeContracts.reduce(
-                (sum, c) => sum + c.monthlyContribution,
-                0
-              );
-              return (
-                <tr key={p.id}>
-                  <td className="px-3 py-2 text-xs font-medium text-slate-800">
-                    {p.name}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-slate-700">
-                    {p.employeeId}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-slate-700">
-                    {p.email}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-slate-700">
-                    {p.location ?? "-"}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-slate-700">
-                    {p.currency}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-slate-700">
-                    {activeContracts.length}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-slate-700 text-right">
-                    {formatMoney(totalMonthly)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <p className="text-[11px] text-slate-500">
-        For now, participants are seeded in code. Next step would be a full
-        editor here to add / remove people and assign contracts from the UI.
-      </p>
-    </CardContent>
-  </Card>
-)}
 
                 <Card className="rounded-2xl border-none shadow-sm">
                   <CardContent className="p-0 overflow-hidden">
@@ -1020,13 +778,8 @@ export default function SAYEPage() {
             )}
 
             {view === "config" && (
-  <SAYEConfigView
-    planConfigs={planConfigs}
-    setPlanConfigs={setPlanConfigs}
-    participants={participants}
-    setParticipants={setParticipants}
-  />
-)}
+              <SAYEConfigView planConfigs={planConfigs} setPlanConfigs={setPlanConfigs} />
+            )}
              {view === "reports" && (
     <SAYEReportsView plans={enriched} planConfigs={planConfigs} />
   )}
@@ -1575,16 +1328,9 @@ function Modal({
 type SAYEConfigViewProps = {
   planConfigs: PlanConfig[];
   setPlanConfigs: React.Dispatch<React.SetStateAction<PlanConfig[]>>;
-  participants: Participant[];
-  setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
 };
 
-function SAYEConfigView({ 
-  planConfigs, 
-  setPlanConfigs,
-  participants,
-  setparticipants,
-}: SAYEConfigViewProps) {
+function SAYEConfigView({ planConfigs, setPlanConfigs }: SAYEConfigViewProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<PlanConfig | null>(null);
@@ -1662,23 +1408,13 @@ function SAYEConfigView({
   return (
     <div className="space-y-4">
       <div className="rounded-full bg-slate-100 p-1 flex max-w-xl mb-4">
-  <button
-    className={`flex-1 text-xs font-medium px-4 py-2 rounded-full ${
-      tab === "plans" ? "bg-white shadow-sm" : "text-slate-500"
-    }`}
-    onClick={() => setTab("plans")}
-  >
-    Plan overview
-  </button>
-  <button
-    className={`flex-1 text-xs font-medium px-4 py-2 rounded-full ${
-      tab === "participants" ? "bg-white shadow-sm" : "text-slate-500"
-    }`}
-    onClick={() => setTab("participants")}
-  >
-    Participants
-  </button>
-</div>
+        <button className="flex-1 text-xs font-medium px-4 py-2 rounded-full bg-white shadow-sm">
+          Plan overview
+        </button>
+        <button className="flex-1 text-xs font-medium px-4 py-2 rounded-full text-slate-500">
+          Participants
+        </button>
+      </div>
 
       <Card className="rounded-2xl border-none shadow-sm">
         <CardContent className="p-6 space-y-6">
