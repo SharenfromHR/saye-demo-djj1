@@ -5,6 +5,22 @@ import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Info, ChevronDown } from "lucide-react";
 
+type Participant = {
+  id: string;
+  name: string;
+  employeeId?: string;
+  email?: string;
+  location?: string;
+  currency?: string;
+  entity?: string;
+  country?: string;
+  grantDate?: string;
+  termYears?: number;
+  monthlyContribution?: number;
+  status?: string;
+  contracts?: any[];
+  [key: string]: any;
+};
 
 const formatMoney = (n: number, ccy = "GBP") =>
   new Intl.NumberFormat(undefined, {
@@ -101,23 +117,6 @@ const [view, setView] = useState<
       paused: false,
     },
   ]);
-  
- type Participant = {
-  id: string;
-  name: string;
-  employeeId?: string;
-  email?: string;
-  location?: string;
-  currency?: string;
-  entity?: string;
-  country?: string;
-  grantDate?: string;
-  termYears?: number;
-  monthlyContribution?: number;
-  status?: string;
-  contracts?: any[];
-  [key: string]: any;
-};
   
 const [participants, setParticipants] = useState<Participant[]>([
   {
