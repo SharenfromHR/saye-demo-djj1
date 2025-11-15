@@ -164,26 +164,26 @@ const [participants, setParticipants] = useState<Participant[]>([
       .filter((p) => p.status === "live");
 
     return livePlans
-      .map((p) => {
-        const start = new Date(p.contractStart);
-        const monthsSinceStart = Math.max(
-          0,
-          (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
-        );
-        const savingsAmount = Math.max(0, p.monthlyContribution * (monthsSinceStart - p.missedPayments));
-        const optionsGranted = (p.monthlyContribution * p.termMonths) / p.optionPrice;
-        const maturityDate = computeMaturity(p.contractStart, p.termMonths, p.missedPayments);
-        const estimatedGain = Math.max(0, (CURRENT_PRICE_GBP - p.optionPrice) * optionsGranted);
-        return {
-          ...p,
-          monthsSinceStart,
-          savingsAmount,
-          optionsGranted,
-          maturityDate,
-          estimatedGain,
-        };
-      })
-      .sort((a, b) => new Date(a.contractStart).getTime() - new Date(b.contractStart).getTime());
+  .map((p) => {
+    const start = new Date(p.contractStart);
+    const monthsSinceStart = Math.max(
+      0,
+      (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
+    );
+    const savingsAmount = Math.max(0, p.monthlyContribution * (monthsSinceStart - p.missedPayments));
+    const optionsGranted = (p.monthlyContribution * p.termMonths) / p.optionPrice;
+    const maturityDate = computeMaturity(p.contractStart, p.termMonths, p.missedPayments);
+    const estimatedGain = Math.max(0, (CURRENT_PRICE_GBP - p.optionPrice) * optionsGranted);
+    return {
+      ...p,
+      monthsSinceStart,
+      savingsAmount,
+      optionsGranted,
+      maturityDate,
+      estimatedGain,
+    };
+  })
+  .sort((a, b) => new Date(a.contractStart).getTime() - new Date(b.contractStart).getTime());
   }, [planConfigs]);
 
   const buildSchedules = (p: (typeof enriched)[number]) => {
