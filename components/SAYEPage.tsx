@@ -114,6 +114,13 @@ const [view, setView] = useState<
   const [sayeMenuOpen, setSayeMenuOpen] = useState(true);
   const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
   const [planConfigs, setPlanConfigs] = useState<PlanConfig[]>([
+    const [participants, setParticipants] = useState<Participant[]>(initialParticipants);
+  const [activeParticipantId, setActiveParticipantId] = useState<string | null>(
+    initialParticipants[0]?.id ?? null
+  );  
+  const activeParticipant =
+    participants.find((p) => p.id === activeParticipantId) ?? participants[0] ?? null;
+
     {
       grantName: "2024 SAYE Plan",
       inviteOpen: "2024-02-01T09:00",
