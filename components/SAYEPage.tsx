@@ -686,6 +686,7 @@ const [view, setView] = useState<
                   </Card>
                 )}
 
+              {tab === "plans" && (
                 <Card className="rounded-2xl border-none shadow-sm">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
@@ -714,6 +715,94 @@ const [view, setView] = useState<
                     </div>
                   </CardContent>
                 </Card>
+              )}
+                {tab === "participants" && (
+  <Card className="rounded-2xl border-none shadow-sm">
+    <CardContent className="p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">
+            SAYE participants (demo)
+          </h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Fake accounts used to drive the participant view and reports.
+          </p>
+        </div>
+      </div>
+
+      <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+        <table className="min-w-full text-xs">
+          <thead className="bg-slate-50/80">
+            <tr>
+              <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                Name
+              </th>
+              <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                Employee ID
+              </th>
+              <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                Email
+              </th>
+              <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                Location
+              </th>
+              <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                Currency
+              </th>
+              <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                Active plans
+              </th>
+              <th className="px-3 py-2 text-left font-semibold text-slate-500 text-right">
+                Total £/mo
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {participants.map((p) => {
+              const activeContracts = p.contracts.filter(
+                (c) => c.monthlyContribution > 0
+              );
+              const totalMonthly = activeContracts.reduce(
+                (sum, c) => sum + c.monthlyContribution,
+                0
+              );
+              return (
+                <tr key={p.id}>
+                  <td className="px-3 py-2 text-xs font-medium text-slate-800">
+                    {p.name}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-slate-700">
+                    {p.employeeId}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-slate-700">
+                    {p.email}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-slate-700">
+                    {p.location ?? "-"}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-slate-700">
+                    {p.currency}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-slate-700">
+                    {activeContracts.length}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-slate-700 text-right">
+                    {formatMoney(totalMonthly)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-[11px] text-slate-500">
+        For now, participants are seeded in code. Next step would be a full
+        editor here to add / remove people and assign contracts from the UI.
+      </p>
+    </CardContent>
+  </Card>
+)}
 
                 <Card className="rounded-2xl border-none shadow-sm">
                   <CardContent className="p-0 overflow-hidden">
