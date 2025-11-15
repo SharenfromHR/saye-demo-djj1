@@ -825,7 +825,12 @@ const [participants, setParticipants] = useState<Participant[]>([
             )}
 
             {view === "config" && (
-              <SAYEConfigView planConfigs={planConfigs} setPlanConfigs={setPlanConfigs} />
+              <SAYEConfigView
+  planConfigs={planConfigs}
+  setPlanConfigs={setPlanConfigs}
+  participants={participants}
+  setParticipants={setParticipants}
+/>
             )}
              {view === "reports" && (
     <SAYEReportsView plans={enriched} planConfigs={planConfigs} />
