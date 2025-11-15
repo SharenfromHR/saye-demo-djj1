@@ -423,36 +423,63 @@ const [participants, setParticipants] = useState<Participant[]>([
             {view === "participant" && (
               <div className="space-y-5">
                 {openInvites.length > 0 && activeInvite && (
-                  <Card className="rounded-2xl border-none shadow-sm mb-1 bg-emerald-50/70 ring-1 ring-emerald-100">
-                    <CardContent className="p-4 flex items-center justify-between gap-4">
-                      <div className="text-xs text-emerald-900">
-                        <div className="font-semibold flex items-center gap-2 mb-1">
-                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white text-[11px] font-bold">
-                            NEW
-                          </span>
-                          <span>New SAYE invitation available</span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium">{activeInvite.grantName}</span>
-                          <span className="text-[11px] text-emerald-800">
-                            Apply by {new Date(activeInvite.inviteClose).toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <Button className="h-8 px-3 text-xs" onClick={toggleInvitePanel}>
-                          {hasApplied ? "Amend application" : "Apply for SAYE"}
-                        </Button>
-                        {minInviteMonthly != null && maxInviteMonthly != null && (
-                          <span className="text-[10px] text-emerald-800">
-                            You can choose between £{minInviteMonthly} and £{maxInviteMonthly} per month during
-                            enrolment.
-                          </span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                        {tab === "plans" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-lg font-semibold tracking-tight">SAYE plan configuration</h1>
+                <p className="text-xs text-slate-500 mt-1">
+                  View all SAYE offerings. Edit a plan or create a new one to push contracts to the participant
+                  view.
+                </p>
+              </div>
+            </div>
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                  Existing SAYE plans & offerings
+                </h2>
+                <Button className="h-8 px-3 text-xs" onClick={openNew}>
+                  New plan
+                </Button>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Plans marked <span className="font-semibold">Live</span> appear in the participant view. Draft
+                invitations stay hidden until you create contracts.
+              </p>
+
+              <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+                <table className="min-w-full text-xs">
+                  <thead className="bg-slate-50/80">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Plan</th>
+                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Status</th>
+                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Invite window</th>
+                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Grant date</th>
+                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Contract start</th>
+                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Opt price</th>
+                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Min £/mo</th>
+                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Max £/mo</th>
+                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Term</th>
+                      <th className="text-right px-3 py-2 font-semibold text-slate-500">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {planConfigs.map((p, i) => (
+                      <tr key={i} className="align-middle">
+                        {/* your existing <td> cells remain exactly as they were */}
+                        {/* copy the row content from your file here unchanged */}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </CardContent>
+        </Card>
+      )}
 
                 {showInvitePanel && activeInvite && enrolment && (
                   <Card className="rounded-2xl border-none shadow-sm">
@@ -1392,6 +1419,7 @@ function SAYEConfigView({
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<PlanConfig | null>(null);
+  const [tab, setTab] = useState<"plans" | "participants">("plans");
 
   const openEdit = (index: number) => {
     const source = planConfigs[index];
@@ -1463,13 +1491,25 @@ function SAYEConfigView({
     );
   };
 
-  return (
+    return (
     <div className="space-y-4">
       <div className="rounded-full bg-slate-100 p-1 flex max-w-xl mb-4">
-        <button className="flex-1 text-xs font-medium px-4 py-2 rounded-full bg-white shadow-sm">
+        <button
+          type="button"
+          onClick={() => setTab("plans")}
+          className={`flex-1 text-xs font-medium px-4 py-2 rounded-full ${
+            tab === "plans" ? "bg-white shadow-sm" : "text-slate-500"
+          }`}
+        >
           Plan overview
         </button>
-        <button className="flex-1 text-xs font-medium px-4 py-2 rounded-full text-slate-500">
+        <button
+          type="button"
+          onClick={() => setTab("participants")}
+          className={`flex-1 text-xs font-medium px-4 py-2 rounded-full ${
+            tab === "participants" ? "bg-white shadow-sm" : "text-slate-500"
+          }`}
+        >
           Participants
         </button>
       </div>
@@ -1575,7 +1615,61 @@ function SAYEConfigView({
           </section>
         </CardContent>
       </Card>
+      {tab === "participants" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-lg font-semibold tracking-tight">Participants</h1>
+                <p className="text-xs text-slate-500 mt-1">
+                  Example employees loaded into this demo. In a real system this would come from your HR or payroll
+                  feed.
+                </p>
+              </div>
+            </div>
 
+            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50/80">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Name</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Employee ID</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Email</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Location</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Currency</th>
+                    <th className="text-right px-3 py-2 font-semibold text-slate-500">Contracts</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {participants.map((p) => (
+                    <tr key={p.id}>
+                      <td className="px-3 py-2 text-xs font-medium text-slate-800">{p.name}</td>
+                      <td className="px-3 py-2 text-xs text-slate-700">{p.employeeId ?? "—"}</td>
+                      <td className="px-3 py-2 text-xs text-slate-700">{p.email ?? "—"}</td>
+                      <td className="px-3 py-2 text-xs text-slate-700">{p.location ?? "—"}</td>
+                      <td className="px-3 py-2 text-xs text-slate-700">{p.currency ?? "—"}</td>
+                      <td className="px-3 py-2 text-xs text-right text-slate-700">
+                        {Array.isArray(p.contracts) ? p.contracts.length : 0}
+                      </td>
+                    </tr>
+                  ))}
+                  {participants.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-3 py-4 text-xs text-slate-500 text-center"
+                      >
+                        No participants loaded in this demo.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
       <Modal
         open={editorOpen && !!draft}
         title={editingIndex == null ? "Create new SAYE plan" : "Edit SAYE plan"}
