@@ -56,7 +56,9 @@ interface EnrollmentState {
 }
 
 export default function SAYEPage() {
-  const [view, setView] = useState<"participant" | "config">("participant");
+const [view, setView] = useState<
+  "participant" | "config" | "reports" | "imports"
+>("participant");
   const [sayeMenuOpen, setSayeMenuOpen] = useState(true);
   const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
   const [planConfigs, setPlanConfigs] = useState<PlanConfig[]>([
