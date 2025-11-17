@@ -282,6 +282,7 @@ const [participants, setParticipants] = useState<Participant[]>([
 ]);
   
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
+  const [configTab, setConfigTab] = useState<"plans" | "participants">("plans");
 
   const [modal, setModal] = useState<{
     type: null | "pause" | "unpause" | "cancel";
@@ -336,6 +337,64 @@ const [participants, setParticipants] = useState<Participant[]>([
           new Date(b.contractStart).getTime()
       );
   }, [planConfigs]);
+    const visiblePlans = useMemo(() => {
+    // No participant selected – show all live plans
+    if (!selectedParticipant) return enriched;
+
+    const contracts = Array.isArray(selectedParticipant.contracts)
+      ? selectedParticipant.contracts
+      : [];
+
+    // If they have no enrolments, show nothing
+    if (contracts.length === 0) {
+      return [] as typeof enriched;
+    }
+
+    const result: typeof enriched = [];
+
+    for (const c of contracts) {
+      if (!c || typeof c !== "object") continue;
+      const grantName = (c as any).grantName as string | undefined;
+      if (!grantName) continue;
+
+      const base = enriched.find((p) => p.grantName === grantName);
+      if (!base) continue;
+
+      const monthlyContribution =
+        (c as any).monthlyContribution ?? base.monthlyContribution;
+      const missedPayments =
+        (c as any).missedPayments ?? base.missedPayments ?? 0;
+
+      const savingsAmount = Math.max(
+        0,
+        monthlyContribution * (base.monthsSinceStart - missedPayments)
+      );
+      const optionsGranted =
+        (monthlyContribution * base.termMonths) / base.optionPrice;
+      const maturityDate = computeMaturity(
+        base.contractStart,
+        base.termMonths,
+        missedPayments
+      );
+      const estimatedGain = Math.max(
+        0,
+        (CURRENT_PRICE_GBP - base.optionPrice) * optionsGranted
+      );
+
+      result.push({
+        ...base,
+        monthlyContribution,
+        missedPayments,
+        savingsAmount,
+        optionsGranted,
+        maturityDate,
+        estimatedGain,
+      });
+    }
+
+    return result;
+  }, [enriched, selectedParticipant]);
+
       const visiblePlans = useMemo(() => {
     // No participant selected: show all live plans as before
     if (!selectedParticipant) return enriched;
@@ -636,6 +695,31 @@ const [participants, setParticipants] = useState<Participant[]>([
           <main className="flex-1">
                         {view === "participant" && (
               <div className="space-y-5">
+                                {selectedParticipant && (
+                  <div className="flex justify-end">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-slate-900 text-white text-xs px-3 py-1.5 shadow-sm">
+                      <span>
+                        Viewing as:{" "}
+                        <span className="font-semibold">
+                          {selectedParticipant.name}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        className="h-5 w-5 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-xs"
+                        onClick={() => {
+                          setSelectedParticipant(null);
+                          setConfigTab("participants");
+                          setView("config");
+                        }}
+                        aria-label="Clear participant view"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {openInvites.length > 0 && activeInvite && (
                   <Card className="rounded-2xl border-none shadow-sm">
                     <CardContent className="p-4 flex items-center justify-between gap-4">
@@ -1035,14 +1119,21 @@ const [participants, setParticipants] = useState<Participant[]>([
               </div>
             )}
 
-            {view === "config" && (
-  <SAYEConfigView
-    planConfigs={planConfigs}
-    setPlanConfigs={setPlanConfigs}
-    participants={participants}
-    setParticipants={setParticipants}
-    onOpenParticipant={handleOpenParticipantFromConfig}
-  />
+                        {view === "config" && (
+              <SAYEConfigView
+                planConfigs={planConfigs}
+                setPlanConfigs={setPlanConfigs}
+                participants={participants}
+                setParticipants={setParticipants}
+                tab={configTab}
+                setTab={setConfigTab}
+                onSelectParticipant={(p) => {
+                  setConfigTab("participants");
+                  setSelectedParticipant(p);
+                  setView("participant");
+                }}
+              />
+            )}
 )}
              {view === "reports" && (
     <SAYEReportsView plans={enriched} planConfigs={planConfigs} />
@@ -1590,11 +1681,14 @@ function Modal({
   );
 }
 type SAYEConfigViewProps = {
+  type SAYEConfigViewProps = {
   planConfigs: PlanConfig[];
   setPlanConfigs: React.Dispatch<React.SetStateAction<PlanConfig[]>>;
   participants: Participant[];
   setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
-  onOpenParticipant: (participant: Participant) => void;
+  tab: "plans" | "participants";
+  setTab: React.Dispatch<React.SetStateAction<"plans" | "participants">>;
+  onSelectParticipant: (p: Participant) => void;
 };
 
 function SAYEConfigView({
@@ -1602,12 +1696,13 @@ function SAYEConfigView({
   setPlanConfigs,
   participants,
   setParticipants,
-  onOpenParticipant,
+  tab,
+  setTab,
+  onSelectParticipant,
 }: SAYEConfigViewProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<PlanConfig | null>(null);
-  const [tab, setTab] = useState<"plans" | "participants">("plans");
 
   const openEdit = (index: number) => {
     const source = planConfigs[index];
