@@ -1079,10 +1079,8 @@ const [participants, setParticipants] = useState<Participant[]>([
                   setConfigTab("participants");
                   setSelectedParticipant(p);
                   setView("participant");
-                }}
               />
             )}
-)}
              {view === "reports" && (
     <SAYEReportsView plans={enriched} planConfigs={planConfigs} />
   )}
