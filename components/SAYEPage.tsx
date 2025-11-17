@@ -153,7 +153,7 @@ const [participants, setParticipants] = useState<Participant[]>([
     planIdx: number | null;
   }>({ type: null, planIdx: null });
 
-    const [showInvitePanel, setShowInvitePanel] = useState(false);
+      const [showInvitePanel, setShowInvitePanel] = useState(false);
   const [enrolment, setEnrolment] = useState<EnrollmentState | null>(null);
 
   const enriched = useMemo(() => {
@@ -188,7 +188,7 @@ const [participants, setParticipants] = useState<Participant[]>([
         );
 
         return {
-          ...p, // <-- this is what `.p` was *trying* to be
+          ...p, // << this is the important bit
           monthsSinceStart,
           savingsAmount,
           optionsGranted,
@@ -537,7 +537,8 @@ const [participants, setParticipants] = useState<Participant[]>([
                         <div className="flex flex-wrap items-end gap-4">
                           <div className="space-y-1">
                             <label className="text-xs font-medium text-slate-600">Monthly savings (£)</label>
-                                                        <input
+                            <input
+                            <input
                               type="number"
                               min={activeInvite.minMonthly}
                               max={activeInvite.maxMonthly}
