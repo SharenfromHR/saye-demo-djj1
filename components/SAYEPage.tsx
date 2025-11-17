@@ -395,10 +395,6 @@ const [participants, setParticipants] = useState<Participant[]>([
     return result;
   }, [enriched, selectedParticipant]);
 
-      const visiblePlans = useMemo(() => {
-    // No participant selected: show all live plans as before
-    if (!selectedParticipant) return enriched;
-
     const contracts = Array.isArray(selectedParticipant.contracts)
       ? selectedParticipant.contracts
       : [];
