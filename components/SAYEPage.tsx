@@ -437,66 +437,36 @@ const [participants, setParticipants] = useState<Participant[]>([
           </aside>
 
           <main className="flex-1">
-            {view === "participant" && (
+                        {view === "participant" && (
               <div className="space-y-5">
                 {openInvites.length > 0 && activeInvite && (
-                        {tab === "plans" && (
-        <Card className="rounded-2xl border-none shadow-sm">
-          <CardContent className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-lg font-semibold tracking-tight">SAYE plan configuration</h1>
-                <p className="text-xs text-slate-500 mt-1">
-                  View all SAYE offerings. Edit a plan or create a new one to push contracts to the participant
-                  view.
-                </p>
-              </div>
-            </div>
-
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Existing SAYE plans & offerings
-                </h2>
-                <Button className="h-8 px-3 text-xs" onClick={openNew}>
-                  New plan
-                </Button>
-              </div>
-              <p className="text-[11px] text-slate-500">
-                Plans marked <span className="font-semibold">Live</span> appear in the participant view. Draft
-                invitations stay hidden until you create contracts.
-              </p>
-
-              <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
-                <table className="min-w-full text-xs">
-                  <thead className="bg-slate-50/80">
-                    <tr>
-                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Plan</th>
-                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Status</th>
-                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Invite window</th>
-                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Grant date</th>
-                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Contract start</th>
-                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Opt price</th>
-                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Min £/mo</th>
-                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Max £/mo</th>
-                      <th className="text-left px-3 py-2 font-semibold text-slate-500">Term</th>
-                      <th className="text-right px-3 py-2 font-semibold text-slate-500">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {planConfigs.map((p, i) => (
-                      <tr key={i} className="align-middle">
-                        {/* your existing <td> cells remain exactly as they were */}
-                        {/* copy the row content from your file here unchanged */}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          </CardContent>
-        </Card>
-      )}
+                  <Card className="rounded-2xl border-none shadow-sm">
+                    <CardContent className="p-4 flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">
+                          SAYE invite open
+                        </p>
+                        <p className="text-sm font-medium text-slate-900">
+                          {activeInvite.grantName}
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          Invite window{" "}
+                          {new Date(activeInvite.inviteOpen).toLocaleString()} –{" "}
+                          {new Date(activeInvite.inviteClose).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 text-xs">
+                        <div className="text-slate-600">
+                          Min £{activeInvite.minMonthly.toFixed(0)} / max £
+                          {activeInvite.maxMonthly.toFixed(0)} per month
+                        </div>
+                        <Button className="h-8 px-3 text-xs" onClick={toggleInvitePanel}>
+                          {showInvitePanel ? "Hide enrolment" : "View enrolment"}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {showInvitePanel && activeInvite && enrolment && (
                   <Card className="rounded-2xl border-none shadow-sm">
@@ -547,7 +517,6 @@ const [participants, setParticipants] = useState<Participant[]>([
                               onChange={(e) => {
                                 const v = Number(e.target.value) || 0;
                                 setEnrolment((prev) => (prev ? { ...prev, amount: v } : prev));
-                                );
                               }}
                             />
 
