@@ -126,7 +126,18 @@ const [participants, setParticipants] = useState<Participant[]>([
     email: "anita.spreadsheet@example.com",
     location: "UK",
     currency: "GBP",
-    contracts: [],
+    contracts: [
+      {
+        grantName: "2024 SAYE Plan",
+        monthlyContribution: 250,
+        missedPayments: 0,
+      },
+      {
+        grantName: "2025 SAYE Plan",
+        monthlyContribution: 250,
+        missedPayments: 1,
+      },
+    ],
   },
   {
     id: "P002",
@@ -135,7 +146,18 @@ const [participants, setParticipants] = useState<Participant[]>([
     email: "bill.ding@example.com",
     location: "UK",
     currency: "GBP",
-    contracts: [],
+    contracts: [
+      {
+        grantName: "2024 SAYE Plan",
+        monthlyContribution: 500,
+        missedPayments: 0,
+      },
+      {
+        grantName: "2025 SAYE Plan",
+        monthlyContribution: 0,
+        missedPayments: 0,
+      },
+    ],
   },
   {
     id: "P003",
@@ -144,7 +166,18 @@ const [participants, setParticipants] = useState<Participant[]>([
     email: "sal.monella@example.com",
     location: "UK",
     currency: "GBP",
-    contracts: [],
+    contracts: [
+      {
+        grantName: "2024 SAYE Plan",
+        monthlyContribution: 300,
+        missedPayments: 2,
+      },
+      {
+        grantName: "2025 SAYE Plan",
+        monthlyContribution: 0,
+        missedPayments: 0,
+      },
+    ],
   },
   {
     id: "P004",
@@ -153,7 +186,18 @@ const [participants, setParticipants] = useState<Participant[]>([
     email: "lara.byte@example.com",
     location: "UK",
     currency: "GBP",
-    contracts: [],
+    contracts: [
+      {
+        grantName: "2024 SAYE Plan",
+        monthlyContribution: 200,
+        missedPayments: 0,
+      },
+      {
+        grantName: "2025 SAYE Plan",
+        monthlyContribution: 100,
+        missedPayments: 0,
+      },
+    ],
   },
   {
     id: "P005",
@@ -162,7 +206,18 @@ const [participants, setParticipants] = useState<Participant[]>([
     email: "ola.nordmann@example.com",
     location: "UK",
     currency: "GBP",
-    contracts: [],
+    contracts: [
+      {
+        grantName: "2024 SAYE Plan",
+        monthlyContribution: 0,
+        missedPayments: 0,
+      },
+      {
+        grantName: "2025 SAYE Plan",
+        monthlyContribution: 500,
+        missedPayments: 0,
+      },
+    ],
   },
   {
     id: "P006",
@@ -171,7 +226,18 @@ const [participants, setParticipants] = useState<Participant[]>([
     email: "penny.wise@example.com",
     location: "UK",
     currency: "GBP",
-    contracts: [],
+    contracts: [
+      {
+        grantName: "2024 SAYE Plan",
+        monthlyContribution: 125,
+        missedPayments: 3,
+      },
+      {
+        grantName: "2025 SAYE Plan",
+        monthlyContribution: 125,
+        missedPayments: 0,
+      },
+    ],
   },
   {
     id: "P007",
@@ -180,7 +246,18 @@ const [participants, setParticipants] = useState<Participant[]>([
     email: "hugh.mann@example.com",
     location: "UK",
     currency: "GBP",
-    contracts: [],
+    contracts: [
+      {
+        grantName: "2024 SAYE Plan",
+        monthlyContribution: 400,
+        missedPayments: 0,
+      },
+      {
+        grantName: "2025 SAYE Plan",
+        monthlyContribution: 100,
+        missedPayments: 0,
+      },
+    ],
   },
   {
     id: "P008",
@@ -189,9 +266,21 @@ const [participants, setParticipants] = useState<Participant[]>([
     email: "chris.bacon@example.com",
     location: "UK",
     currency: "GBP",
-    contracts: [],
+    contracts: [
+      {
+        grantName: "2024 SAYE Plan",
+        monthlyContribution: 50,
+        missedPayments: 0,
+      },
+      {
+        grantName: "2025 SAYE Plan",
+        monthlyContribution: 50,
+        missedPayments: 0,
+      },
+    ],
   },
 ]);
+  
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
 
   const [modal, setModal] = useState<{
@@ -247,28 +336,62 @@ const [participants, setParticipants] = useState<Participant[]>([
           new Date(b.contractStart).getTime()
       );
   }, [planConfigs]);
-    const visiblePlans = useMemo(() => {
-    // If no participant is selected, show all live plans
+      const visiblePlans = useMemo(() => {
+    // No participant selected: show all live plans as before
     if (!selectedParticipant) return enriched;
 
-    const contracts = selectedParticipant.contracts || [];
-    if (!Array.isArray(contracts) || contracts.length === 0) {
-      // No specific enrolments set yet – show all for now
+    const contracts = Array.isArray(selectedParticipant.contracts)
+      ? selectedParticipant.contracts
+      : [];
+
+    if (contracts.length === 0) {
+      // No enrolments set for this participant – fall back to all
       return enriched;
     }
 
-    const allowedGrantNames = new Set<string>();
+    const result: typeof enriched = [];
+
     for (const c of contracts) {
-      if (!c) continue;
-      if (typeof c === "string") {
-        allowedGrantNames.add(c);
-      } else if (typeof c === "object" && typeof (c as any).grantName === "string") {
-        allowedGrantNames.add((c as any).grantName);
-      }
+      if (!c || typeof c !== "object") continue;
+      const grantName = (c as any).grantName as string | undefined;
+      if (!grantName) continue;
+
+      const base = enriched.find((p) => p.grantName === grantName);
+      if (!base) continue;
+
+      const monthlyContribution =
+        (c as any).monthlyContribution ?? base.monthlyContribution;
+      const missedPayments =
+        (c as any).missedPayments ?? base.missedPayments ?? 0;
+
+      const savingsAmount = Math.max(
+        0,
+        monthlyContribution * (base.monthsSinceStart - missedPayments)
+      );
+      const optionsGranted =
+        (monthlyContribution * base.termMonths) / base.optionPrice;
+      const maturityDate = computeMaturity(
+        base.contractStart,
+        base.termMonths,
+        missedPayments
+      );
+      const estimatedGain = Math.max(
+        0,
+        (CURRENT_PRICE_GBP - base.optionPrice) * optionsGranted
+      );
+
+      result.push({
+        ...base,
+        monthlyContribution,
+        missedPayments,
+        savingsAmount,
+        optionsGranted,
+        maturityDate,
+        estimatedGain,
+      });
     }
 
-    if (allowedGrantNames.size === 0) return enriched;
-    return enriched.filter((p) => allowedGrantNames.has(p.grantName));
+    return result;
   }, [enriched, selectedParticipant]);
 
   const buildSchedules = (p: (typeof enriched)[number]) => {
