@@ -546,8 +546,9 @@ const [participants, setParticipants] = useState<Participant[]>([
                               value={enrolment.amount}
                               onChange={(e) => {
                                 const v = Number(e.target.value) || 0;
-                                setEnrolment((prev) => (prev ? { ...prev, amount: v } : prev));
-
+                                setEnrolment((prev) =>
+                                  prev ? { ...prev, amount: v } : prev
+                                );
                               }}
                             />
 
