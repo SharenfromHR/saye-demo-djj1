@@ -192,7 +192,7 @@ const [participants, setParticipants] = useState<Participant[]>([
     contracts: [],
   },
 ]);
-
+  const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
 
   const [modal, setModal] = useState<{
     type: null | "pause" | "unpause" | "cancel";
@@ -247,6 +247,29 @@ const [participants, setParticipants] = useState<Participant[]>([
           new Date(b.contractStart).getTime()
       );
   }, [planConfigs]);
+    const visiblePlans = useMemo(() => {
+    // If no participant is selected, show all live plans
+    if (!selectedParticipant) return enriched;
+
+    const contracts = selectedParticipant.contracts || [];
+    if (!Array.isArray(contracts) || contracts.length === 0) {
+      // No specific enrolments set yet – show all for now
+      return enriched;
+    }
+
+    const allowedGrantNames = new Set<string>();
+    for (const c of contracts) {
+      if (!c) continue;
+      if (typeof c === "string") {
+        allowedGrantNames.add(c);
+      } else if (typeof c === "object" && typeof (c as any).grantName === "string") {
+        allowedGrantNames.add((c as any).grantName);
+      }
+    }
+
+    if (allowedGrantNames.size === 0) return enriched;
+    return enriched.filter((p) => allowedGrantNames.has(p.grantName));
+  }, [enriched, selectedParticipant]);
 
   const buildSchedules = (p: (typeof enriched)[number]) => {
     const start = new Date(p.contractStart);
@@ -299,7 +322,7 @@ const [participants, setParticipants] = useState<Participant[]>([
     return { history, upcoming };
   };
 
-  const totalMonthly = enriched.reduce((sum, p) => sum + p.monthlyContribution, 0);
+  const totalMonthly = visiblePlans.reduce((sum, p) => sum + p.monthlyContribution, 0);
   const CAP = 500;
   const capClasses =
     totalMonthly > CAP
@@ -328,6 +351,11 @@ const [participants, setParticipants] = useState<Participant[]>([
   const openUnpause = (idx: number) => setModal({ type: "unpause", planIdx: idx });
   const openCancel = (idx: number) => setModal({ type: "cancel", planIdx: idx });
   const closeModal = () => setModal({ type: null, planIdx: null });
+
+  const handleOpenParticipantFromConfig = (participant: Participant) => {
+    setSelectedParticipant(participant);
+    setView("participant");
+  };
 
   const confirmModal = () => {
     const idx = modal.planIdx;
@@ -728,7 +756,7 @@ const [participants, setParticipants] = useState<Participant[]>([
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-slate-50/50">
-                        {enriched.map((p, idx) => {
+                          {visiblePlans.map((p, idx) => {
                           const isOpen = !!openRows[idx];
                           const { history, upcoming } = buildSchedules(p);
                           return (
@@ -885,13 +913,14 @@ const [participants, setParticipants] = useState<Participant[]>([
             )}
 
             {view === "config" && (
-              <SAYEConfigView
-  planConfigs={planConfigs}
-  setPlanConfigs={setPlanConfigs}
-  participants={participants}
-  setParticipants={setParticipants}
-/>
-            )}
+  <SAYEConfigView
+    planConfigs={planConfigs}
+    setPlanConfigs={setPlanConfigs}
+    participants={participants}
+    setParticipants={setParticipants}
+    onOpenParticipant={handleOpenParticipantFromConfig}
+  />
+)}
              {view === "reports" && (
     <SAYEReportsView plans={enriched} planConfigs={planConfigs} />
   )}
@@ -1442,6 +1471,7 @@ type SAYEConfigViewProps = {
   setPlanConfigs: React.Dispatch<React.SetStateAction<PlanConfig[]>>;
   participants: Participant[];
   setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
+  onOpenParticipant: (participant: Participant) => void;
 };
 
 function SAYEConfigView({
@@ -1449,6 +1479,7 @@ function SAYEConfigView({
   setPlanConfigs,
   participants,
   setParticipants,
+  onOpenParticipant,
 }: SAYEConfigViewProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -1679,7 +1710,15 @@ function SAYEConfigView({
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {participants.map((p) => (
                     <tr key={p.id}>
-                      <td className="px-3 py-2 text-xs font-medium text-slate-800">{p.name}</td>
+                            <td className="px-3 py-2 text-xs font-medium text-slate-800">
+        <button
+          type="button"
+          onClick={() => onOpenParticipant(p)}
+          className="text-indigo-600 hover:underline"
+        >
+          {p.name}
+        </button>
+      </td>
                       <td className="px-3 py-2 text-xs text-slate-700">{p.employeeId ?? "—"}</td>
                       <td className="px-3 py-2 text-xs text-slate-700">{p.email ?? "—"}</td>
                       <td className="px-3 py-2 text-xs text-slate-700">{p.location ?? "—"}</td>
