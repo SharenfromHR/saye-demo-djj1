@@ -142,8 +142,8 @@ const [participants, setParticipants] = useState<Participant[]>([
     name: "Sal Monella",
     employeeId: "100789",
     email: "sal.monella@example.com",
-    location: "NO",
-    currency: "NOK",
+    location: "UK",
+    currency: "GBP",
     contracts: [],
   }
 ]);
