@@ -1681,7 +1681,6 @@ function Modal({
   );
 }
 type SAYEConfigViewProps = {
-  type SAYEConfigViewProps = {
   planConfigs: PlanConfig[];
   setPlanConfigs: React.Dispatch<React.SetStateAction<PlanConfig[]>>;
   participants: Participant[];
