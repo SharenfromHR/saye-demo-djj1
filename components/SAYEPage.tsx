@@ -292,7 +292,7 @@ const [participants, setParticipants] = useState<Participant[]>([
   const [showInvitePanel, setShowInvitePanel] = useState(false);
   const [enrolment, setEnrolment] = useState<EnrollmentState | null>(null);
 
-  const enriched = useMemo(() => {
+    const enriched = useMemo(() => {
     const now = new Date();
 
     const livePlans = planConfigs
@@ -337,7 +337,8 @@ const [participants, setParticipants] = useState<Participant[]>([
           new Date(b.contractStart).getTime()
       );
   }, [planConfigs]);
-    const visiblePlans = useMemo(() => {
+
+  const visiblePlans = useMemo(() => {
     // No participant selected – show all live plans
     if (!selectedParticipant) return enriched;
 
@@ -345,7 +346,7 @@ const [participants, setParticipants] = useState<Participant[]>([
       ? selectedParticipant.contracts
       : [];
 
-    // If they have no enrolments, show nothing
+    // Participant has no enrolments – show nothing
     if (contracts.length === 0) {
       return [] as typeof enriched;
     }
@@ -354,6 +355,7 @@ const [participants, setParticipants] = useState<Participant[]>([
 
     for (const c of contracts) {
       if (!c || typeof c !== "object") continue;
+
       const grantName = (c as any).grantName as string | undefined;
       if (!grantName) continue;
 
@@ -392,61 +394,11 @@ const [participants, setParticipants] = useState<Participant[]>([
       });
     }
 
-    return result;
-  }, [enriched, selectedParticipant]);
-
-    const contracts = Array.isArray(selectedParticipant.contracts)
-      ? selectedParticipant.contracts
-      : [];
-
-    if (contracts.length === 0) {
-      // No enrolments set for this participant – fall back to all
-      return enriched;
-    }
-
-    const result: typeof enriched = [];
-
-    for (const c of contracts) {
-      if (!c || typeof c !== "object") continue;
-      const grantName = (c as any).grantName as string | undefined;
-      if (!grantName) continue;
-
-      const base = enriched.find((p) => p.grantName === grantName);
-      if (!base) continue;
-
-      const monthlyContribution =
-        (c as any).monthlyContribution ?? base.monthlyContribution;
-      const missedPayments =
-        (c as any).missedPayments ?? base.missedPayments ?? 0;
-
-      const savingsAmount = Math.max(
-        0,
-        monthlyContribution * (base.monthsSinceStart - missedPayments)
-      );
-      const optionsGranted =
-        (monthlyContribution * base.termMonths) / base.optionPrice;
-      const maturityDate = computeMaturity(
-        base.contractStart,
-        base.termMonths,
-        missedPayments
-      );
-      const estimatedGain = Math.max(
-        0,
-        (CURRENT_PRICE_GBP - base.optionPrice) * optionsGranted
-      );
-
-      result.push({
-        ...base,
-        monthlyContribution,
-        missedPayments,
-        savingsAmount,
-        optionsGranted,
-        maturityDate,
-        estimatedGain,
-      });
-    }
-
-    return result;
+    return result.sort(
+      (a, b) =>
+        new Date(a.contractStart).getTime() -
+        new Date(b.contractStart).getTime()
+    );
   }, [enriched, selectedParticipant]);
 
   const buildSchedules = (p: (typeof enriched)[number]) => {
