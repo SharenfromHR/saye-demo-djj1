@@ -1068,19 +1068,21 @@ return (
             )}
 
                         {view === "config" && (
-              <SAYEConfigView
-                planConfigs={planConfigs}
-                setPlanConfigs={setPlanConfigs}
-                participants={participants}
-                setParticipants={setParticipants}
-                tab={configTab}
-                setTab={setConfigTab}
-                onSelectParticipant={(p) => {
-                  setConfigTab("participants");
-                  setSelectedParticipant(p);
-                  setView("participant");
-              />
-            )}
+              {view === "config" && (
+  <SAYEConfigView
+    planConfigs={planConfigs}
+    setPlanConfigs={setPlanConfigs}
+    participants={participants}
+    setParticipants={setParticipants}
+    tab={configTab}
+    setTab={setConfigTab}
+    onSelectParticipant={(p) => {
+      setConfigTab("participants");
+      setSelectedParticipant(p);
+      setView("participant");
+    }}
+  />
+)}
              {view === "reports" && (
     <SAYEReportsView plans={enriched} planConfigs={planConfigs} />
   )}
