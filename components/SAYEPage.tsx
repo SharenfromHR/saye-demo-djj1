@@ -145,8 +145,54 @@ const [participants, setParticipants] = useState<Participant[]>([
     location: "UK",
     currency: "GBP",
     contracts: [],
-  }
+  },
+  {
+    id: "P004",
+    name: "Lara Byte",
+    employeeId: "100990",
+    email: "lara.byte@example.com",
+    location: "UK",
+    currency: "GBP",
+    contracts: [],
+  },
+  {
+    id: "P005",
+    name: "Ola Nordmann",
+    employeeId: "101111",
+    email: "ola.nordmann@example.com",
+    location: "UK",
+    currency: "GBP",
+    contracts: [],
+  },
+  {
+    id: "P006",
+    name: "Penny Wise",
+    employeeId: "101222",
+    email: "penny.wise@example.com",
+    location: "UK",
+    currency: "GBP",
+    contracts: [],
+  },
+  {
+    id: "P007",
+    name: "Hugh Mann",
+    employeeId: "101333",
+    email: "hugh.mann@example.com",
+    location: "UK",
+    currency: "GBP",
+    contracts: [],
+  },
+  {
+    id: "P008",
+    name: "Chris P. Bacon",
+    employeeId: "101444",
+    email: "chris.bacon@example.com",
+    location: "UK",
+    currency: "GBP",
+    contracts: [],
+  },
 ]);
+
 
   const [modal, setModal] = useState<{
     type: null | "pause" | "unpause" | "cancel";
@@ -1502,7 +1548,8 @@ function SAYEConfigView({
         </button>
       </div>
 
-      <Card className="rounded-2xl border-none shadow-sm">
+      {tab === "plans" && (
+        <Card className="rounded-2xl border-none shadow-sm">
         <CardContent className="p-6 space-y-6">
           <div className="flex items-center justify-between">
             <div>
@@ -1603,6 +1650,7 @@ function SAYEConfigView({
           </section>
         </CardContent>
       </Card>
+      )}
       {tab === "participants" && (
         <Card className="rounded-2xl border-none shadow-sm">
           <CardContent className="p-6 space-y-6">
