@@ -186,7 +186,6 @@ const [participants, setParticipants] = useState<Participant[]>([
           0,
           (CURRENT_PRICE_GBP - p.optionPrice) * optionsGranted
         );
-
         return {
           ...p,
           monthsSinceStart,
@@ -326,7 +325,6 @@ const [participants, setParticipants] = useState<Participant[]>([
     if (!enrolment.accepted || !enrolment.read) return false;
     if (enrolment.amount < activeInvite.minMonthly || enrolment.amount > activeInvite.maxMonthly) return false;
     return true;
-  })();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
@@ -546,8 +544,7 @@ const [participants, setParticipants] = useState<Participant[]>([
                               value={enrolment.amount}
                               onChange={(e) => {
                                 const v = Number(e.target.value) || 0;
-                                setEnrolment((prev) =>
-                                  prev ? { ...prev, amount: v } : prev
+                                setEnrolment((prev) => (prev ? { ...prev, amount: v } : prev));
                                 );
                               }}
                             />
