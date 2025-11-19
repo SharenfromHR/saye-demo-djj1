@@ -532,6 +532,11 @@ const [participants, setParticipants] = useState<Participant[]>([
   enrolment.amount >= activeInvite.minMonthly &&
   enrolment.amount <= activeInvite.maxMonthly;
 
+}
+return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+
+
 
 return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
