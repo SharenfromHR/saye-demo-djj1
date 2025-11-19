@@ -509,19 +509,33 @@ const [participants, setParticipants] = useState<Participant[]>([
 
   const toggleInvitePanel = () => {
     if (!activeInvite) return;
+
     setShowInvitePanel((prev) => {
       const next = !prev;
+
+      // If they open the panel for the first time, pre-fill with a mid value
       if (next && !enrolment) {
-        const mid = (activeInvite.minMonthly + activeInvite.maxMonthly) / 2;
-        setEnrolment({ amount: mid, accepted: false, read: false, hasApplied: false });
+        const mid =
+          (activeInvite.minMonthly + activeInvite.maxMonthly) / 2;
+
+        setEnrolment({
+          amount: mid,
+          accepted: false,
+          read: false,
+          hasApplied: false,
+        });
       }
+
       return next;
     });
   };
 
-    const handleConfirmEnrolment = () => {
+  const handleConfirmEnrolment = () => {
     if (!activeInvite || !enrolment) return;
-    setEnrolment((prev) => (prev ? { ...prev, hasApplied: true } : prev));
+
+    setEnrolment((prev) =>
+      prev ? { ...prev, hasApplied: true } : prev
+    );
   };
 
   const canConfirmEnrolment =
