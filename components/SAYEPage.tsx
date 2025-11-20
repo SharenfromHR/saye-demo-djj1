@@ -1631,7 +1631,6 @@ export default function SAYEPage() {
                                 <div className="flex items-center justify-between gap-3 pt-1">
                                   <Button
                                     className="h-8 px-3 text-xs"
-                                    className="text-xs"
                                     disabled={!canConfirmEnrolment}
                                     onClick={handleConfirmEnrolment}
                                   >
