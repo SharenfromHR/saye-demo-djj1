@@ -330,6 +330,7 @@ function SAYEConfigView({
   setTab,
   onSelectParticipant,
 }: SAYEConfigViewProps) {
+
   const [editingConfigId, setEditingConfigId] = useState<string | null>(null);
 
   const handleConfigChange = (id: string, updates: Partial<PlanConfig>) => {
