@@ -513,14 +513,14 @@ const [participants, setParticipants] = useState<Participant[]>([
     closeModal();
   };
 
-  const toggleInvitePanel = () => {
+    const toggleInvitePanel = () => {
     if (!activeInvite) return;
 
     setShowInvitePanel((prev) => {
       const next = !prev;
 
       // If they open the panel for the first time, pre-fill with a mid value
-      if (next && !enrolment) {
+      if (next && !enrolment && activeInvite) {
         const mid =
           (activeInvite.minMonthly + activeInvite.maxMonthly) / 2;
 
@@ -536,7 +536,7 @@ const [participants, setParticipants] = useState<Participant[]>([
     });
   };
 
-        const handleConfirmEnrolment = () => {
+  const handleConfirmEnrolment = () => {
     if (!activeInvite || !enrolment) return;
 
     setEnrolment((prev) =>
@@ -549,14 +549,15 @@ const [participants, setParticipants] = useState<Participant[]>([
   const effectiveInviteMax =
     activeInvite ? Math.min(activeInvite.maxMonthly, remainingAllowance) : 0;
 
-  const canConfirmEnrolment = Boolean(
+  const canConfirmEnrolment = !!(
     activeInvite &&
-      enrolment &&
-      enrolment.accepted &&
-      enrolment.read &&
-      remainingAllowance >= minMonthly &&
-      enrolment.amount >= minMonthly &&
-      enrolment.amount <= effectiveInviteMax
+    enrolment &&
+    enrolment.accepted &&
+    enrolment.read &&
+    remainingAllowance >= minMonthly &&
+    enrolment.amount >= minMonthly &&
+    enrolment.amount <= effectiveInviteMax
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
