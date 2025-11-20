@@ -5,8 +5,6 @@ import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Info, ChevronDown } from "lucide-react";
 
-const MAX_SAYE_MONTHLY_SAVING = 500; // HMRC limit across ALL SAYE plans
-
 type Participant = {
   id: string;
   name: string;
@@ -23,15 +21,6 @@ type Participant = {
   contracts?: any[];
   [key: string]: any;
 };
-
-function getExistingMonthlySavingForParticipant(
-  participantId: string,
-  allParticipants: Participant[]
-): number {
-  return allParticipants
-    .filter((p) => p.id === participantId && p.status === "Active")
-    .reduce((sum, p) => sum + (p.monthlyContribution ?? 0), 0);
-}
 
 const formatMoney = (n: number, ccy = "GBP") =>
   new Intl.NumberFormat(undefined, {
@@ -770,36 +759,11 @@ const [participants, setParticipants] = useState<Participant[]>([
                               step={1}
                               className="w-40 rounded-lg border border-slate-200 px-3 py-2 text-sm"
                               value={enrolment.amount}
-                              onChange={(e) =>
-  setParticipants((prev) => {
-    const requested = Number(e.target.value) || 0;
-
-    // Total they're already saving across all SAYE contracts
-    const existingTotal = getExistingMonthlySavingForParticipant(
-      participant.id,
-      prev
-    );
-
-    // Remove this participant's current contribution from the total,
-    // because we're about to replace it with "requested"
-    const existingWithoutThis =
-      existingTotal - (participant.monthlyContribution ?? 0);
-
-    // Max we can allow for THIS input without breaking £500 overall
-    const remainingAllowance = Math.max(
-      0,
-      MAX_SAYE_MONTHLY_SAVING - existingWithoutThis
-    );
-
-    const approved = Math.min(requested, remainingAllowance);
-
-    return prev.map((row) =>
-      row.id === participant.id
-        ? { ...row, monthlyContribution: approved }
-        : row
-    );
-  })
-}
+                              onChange={(e) => {
+                                const v = Number(e.target.value) || 0;
+                                setEnrolment((prev) => (prev ? { ...prev, amount: v } : prev));
+                              }}
+                            />
 
                           </div>
                           <div className="text-xs text-slate-500">
