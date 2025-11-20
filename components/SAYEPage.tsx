@@ -555,15 +555,27 @@ const [participants, setParticipants] = useState<Participant[]>([
     );
   };
 
-      const canConfirmEnrolment =
-    !!activeInvite &&
-    !!enrolment &&
-    enrolment.accepted &&
-    enrolment.read &&
-    enrolment.amount >= activeInvite.minMonthly &&
-    enrolment.amount <= activeInvite.maxMonthly &&
-    // Only enforce £500 cap when viewing as a specific participant
-    (!selectedParticipant || enrolment.amount <= remainingCap);
+// Global SAYE cap (per employee)
+const CAP = 500;
+
+// Total current monthly across all live contracts for this participant
+const totalMonthly = enriched.reduce(
+  (sum: number, p: any) => sum + (p.monthlyContribution || 0),
+  0
+);
+
+// What's left
+const remainingCap = Math.max(0, CAP - totalMonthly);
+
+// Final enrolment validation
+const canConfirmEnrolment =
+  !!activeInvite &&
+  !!enrolment &&
+  enrolment.accepted &&
+  enrolment.read &&
+  enrolment.amount >= activeInvite.minMonthly &&
+  enrolment.amount <= activeInvite.maxMonthly &&
+  enrolment.amount <= remainingCap;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
@@ -800,14 +812,11 @@ const [participants, setParticipants] = useState<Participant[]>([
                         </div>
 
                         {selectedParticipant &&
-                          enrolment &&
-                          enrolment.amount > remainingCap && (
+                           enrolment &&
+                           enrolment.amount > remainingCap && (
                             <p className="text-xs text-rose-600 mt-1">
-                              You&apos;re £
-                              {(enrolment.amount - remainingCap).toFixed(2)} over your £
-                              {CAP.toFixed(0)} monthly SAYE cap.
-                              Based on your existing £{totalMonthly.toFixed(2)} per month across live contracts, you
-                              can apply for up to £{remainingCap.toFixed(2)} in this plan.
+                              You’re £{(enrolment.amount - remainingCap).toFixed(2)} over your £{CAP} monthly SAYE cap.
+                              You can only save up to £{remainingCap.toFixed(2)} in this plan.
                             </p>
                           )}
 
