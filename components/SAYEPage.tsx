@@ -5,6 +5,21 @@ import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Info, ChevronDown } from "lucide-react";
 
+// GLOBAL SAYE CAP PER EMPLOYEE
+const GLOBAL_SAYE_CAP = 500;
+
+// Helper: clamp requested monthly saving to the remaining allowance
+function clampToGlobalCap(allContracts: { monthlyContribution: number }[], newValue: number): number {
+  // Sum all existing monthly contributions
+  const currentTotal = allContracts.reduce(
+    (sum, c) => sum + (c.monthlyContribution ?? 0),
+    0
+  );
+
+  const remaining = Math.max(0, GLOBAL_SAYE_CAP - currentTotal);
+  return Math.min(newValue, remaining);
+}
+
 type Participant = {
   id: string;
   name: string;
@@ -461,6 +476,8 @@ const [participants, setParticipants] = useState<Participant[]>([
       ? "bg-amber-50 text-amber-700 ring-amber-200"
       : "bg-emerald-50 text-emerald-700 ring-emerald-200";
 
+    const remainingCap = selectedParticipant ? Math.max(0, CAP - totalMonthly) : CAP;
+
   const nowForInvites = new Date();
   const openInvites = planConfigs.filter((p) => {
     if (p.status !== "invite") return false;
@@ -538,13 +555,15 @@ const [participants, setParticipants] = useState<Participant[]>([
     );
   };
 
-    const canConfirmEnrolment =
+      const canConfirmEnrolment =
     !!activeInvite &&
     !!enrolment &&
     enrolment.accepted &&
     enrolment.read &&
     enrolment.amount >= activeInvite.minMonthly &&
-    enrolment.amount <= activeInvite.maxMonthly;
+    enrolment.amount <= activeInvite.maxMonthly &&
+    // Only enforce £500 cap when viewing as a specific participant
+    (!selectedParticipant || enrolment.amount <= remainingCap);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
@@ -764,7 +783,6 @@ const [participants, setParticipants] = useState<Participant[]>([
                                 setEnrolment((prev) => (prev ? { ...prev, amount: v } : prev));
                               }}
                             />
-
                           </div>
                           <div className="text-xs text-slate-500">
                             <div>
@@ -780,7 +798,18 @@ const [participants, setParticipants] = useState<Participant[]>([
                             </div>
                           </div>
                         </div>
-                      </div>
+
+                        {selectedParticipant &&
+                          enrolment &&
+                          enrolment.amount > remainingCap && (
+                            <p className="text-xs text-rose-600 mt-1">
+                              You&apos;re £
+                              {(enrolment.amount - remainingCap).toFixed(2)} over your £
+                              {CAP.toFixed(0)} monthly SAYE cap.
+                              Based on your existing £{totalMonthly.toFixed(2)} per month across live contracts, you
+                              can apply for up to £{remainingCap.toFixed(2)} in this plan.
+                            </p>
+                          )}
 
                       <div className="border-t border-slate-100 pt-4 space-y-3">
                         <h3 className="text-sm font-semibold text-slate-900">Step 3 · Confirm & apply</h3>
