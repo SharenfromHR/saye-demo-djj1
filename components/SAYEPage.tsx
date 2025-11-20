@@ -421,7 +421,7 @@ function SAYEConfigView({
                   </div>
                   <Button
                     variant="outline"
-                    size="sm"
+                    className="h-8 px-3 text-xs"
                     onClick={() =>
                       setEditingConfigId(
                         editingConfigId === cfg.id ? null : cfg.id
@@ -777,7 +777,7 @@ function SAYEReportsView({ plans, planConfigs }: SAYEReportsViewProps) {
             limits.
           </p>
         </div>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" className="h-8 px-3 text-xs">
           Export CSV
         </Button>
       </div>
@@ -858,7 +858,7 @@ function SAYEImportsView({ planConfigs }: SAYEImportsViewProps) {
             Simple demo view for savings carrier / payroll files.
           </p>
         </div>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" className="h-8 px-3 text-xs">
           Download templates
         </Button>
       </div>
@@ -1190,11 +1190,14 @@ export default function SAYEPage() {
                           </div>
                         </div>
                         <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => alert("Export coming soon")}
-                        >
+  variant="outline"
+  className="h-7 px-3 text-xs"
+  onClick={() =>
+    setEditingConfigId(
+      editingConfigId === cfg.id ? null : cfg.id
+    )
+  }
+>
                           Export summary
                         </Button>
                       </div>
@@ -1260,7 +1263,7 @@ export default function SAYEPage() {
                                     {plan.status === "live" ? (
                                       <div className="inline-flex gap-1">
                                         <Button
-                                          size="xs"
+                                          className="h-6 px-2 text-[11px]"
                                           variant="outline"
                                           className="text-[11px]"
                                           onClick={() =>
@@ -1270,7 +1273,7 @@ export default function SAYEPage() {
                                           Pause
                                         </Button>
                                         <Button
-                                          size="xs"
+                                          className="h-6 px-2 text-[11px]"
                                           variant="outline"
                                           className="text-[11px]"
                                           onClick={() =>
@@ -1416,7 +1419,7 @@ export default function SAYEPage() {
                           </p>
                         </div>
                         <Button
-                          size="sm"
+                          className="h-8 px-3 text-xs"
                           variant="outline"
                           className="text-xs"
                           onClick={() =>
@@ -1743,7 +1746,7 @@ export default function SAYEPage() {
 
                                 <div className="flex items-center justify-between gap-3 pt-1">
                                   <Button
-                                    size="sm"
+                                    className="h-8 px-3 text-xs"
                                     className="text-xs"
                                     disabled={!canConfirmEnrolment}
                                     onClick={handleConfirmEnrolment}
@@ -1937,13 +1940,13 @@ export default function SAYEPage() {
                       <div className="mt-4 flex justify-end gap-2 text-xs">
                         <Button
                           variant="outline"
-                          size="sm"
+                          className="h-8 px-3 text-xs"
                           onClick={closeModal}
                         >
                           Close
                         </Button>
                         <Button
-                          size="sm"
+                          className="h-8 px-3 text-xs"
                           disabled={!modalChoice && modalAction === "pause"}
                           onClick={handleConfirmModal}
                         >
