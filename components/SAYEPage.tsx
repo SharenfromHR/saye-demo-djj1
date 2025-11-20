@@ -5,21 +5,6 @@ import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Info, ChevronDown } from "lucide-react";
 
-// GLOBAL SAYE CAP PER EMPLOYEE
-const GLOBAL_SAYE_CAP = 500;
-
-// Helper: clamp requested monthly saving to the remaining allowance
-function clampToGlobalCap(allContracts: { monthlyContribution: number }[], newValue: number): number {
-  // Sum all existing monthly contributions
-  const currentTotal = allContracts.reduce(
-    (sum, c) => sum + (c.monthlyContribution ?? 0),
-    0
-  );
-
-  const remaining = Math.max(0, GLOBAL_SAYE_CAP - currentTotal);
-  return Math.min(newValue, remaining);
-}
-
 type Participant = {
   id: string;
   name: string;
@@ -554,29 +539,16 @@ const [participants, setParticipants] = useState<Participant[]>([
       prev ? { ...prev, hasApplied: true } : prev
     );
   };
-
-// Global SAYE cap (per employee)
-const CAP = 500;
-
-// Total current monthly across all live contracts for this participant
-const totalMonthly = enriched.reduce(
-  (sum: number, p: any) => sum + (p.monthlyContribution || 0),
-  0
-);
-
-// What's left
-const remainingCap = Math.max(0, CAP - totalMonthly);
-
-// Final enrolment validation
-const canConfirmEnrolment =
-  !!activeInvite &&
-  !!enrolment &&
-  enrolment.accepted &&
-  enrolment.read &&
-  enrolment.amount >= activeInvite.minMonthly &&
-  enrolment.amount <= activeInvite.maxMonthly &&
-  enrolment.amount <= remainingCap;
-
+  
+  const canConfirmEnrolment =
+    !!activeInvite &&
+    !!enrolment &&
+    enrolment.accepted &&
+    enrolment.read &&
+    enrolment.amount >= activeInvite.minMonthly &&
+    enrolment.amount <= activeInvite.maxMonthly &&
+    enrolment.amount <= remainingCap;
+  
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
       <div className="mx-auto max-w-7xl px-4 pt-6 pb-10">
