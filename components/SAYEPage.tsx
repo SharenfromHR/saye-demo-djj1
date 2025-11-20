@@ -1080,9 +1080,7 @@ const [participants, setParticipants] = useState<Participant[]>([
                     </table>
                   </CardContent>
                 </Card>
-              </div>
-            )}
-
+                           </div>
             )}
 
             {view === "config" && (
@@ -1108,8 +1106,8 @@ const [participants, setParticipants] = useState<Participant[]>([
             {view === "imports" && (
               <SAYEImportsView planConfigs={planConfigs} />
             )}
-
           </main>
+
         </div>
       </div>
 
