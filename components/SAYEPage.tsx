@@ -6,25 +6,20 @@ import { Button } from "./ui/button";
 import { Info, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-function calculateMaturity(
-  cfg: { term?: number | string },
-  grantDate: Date
-) {
-  if (!cfg || !cfg.term || !grantDate) return null;
+function calculateMaturity(cfg: PlanConfig, grantDate: Date) {
+  if (!cfg || !cfg.termMonths || !grantDate) return null;
 
-  const termYears = Number(cfg.term);
-  if (Number.isNaN(termYears)) return null;
+  const termMonths = cfg.termMonths;
+  const termYears = termMonths / 12;
 
   const maturityDate = new Date(grantDate);
   maturityDate.setFullYear(maturityDate.getFullYear() + termYears);
-
-  const termMonths = termYears * 12;
 
   const now = new Date();
   const remainingMonths = Math.max(
     0,
     Math.round(
-      (maturityDate.getTime() - now.getTime()) /
+      (maturityDate.getTime - now.getTime()) /
         (1000 * 60 * 60 * 24 * 30)
     )
   );
