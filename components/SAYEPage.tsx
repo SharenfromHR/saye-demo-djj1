@@ -536,13 +536,15 @@ const [participants, setParticipants] = useState<Participant[]>([
     });
   };
 
-    const handleConfirmEnrolment = () => {
+      const handleConfirmEnrolment = () => {
     if (!activeInvite || !enrolment) return;
 
     setEnrolment((prev) =>
       prev ? { ...prev, hasApplied: true } : prev
     );
   };
+
+  const minMonthly = activeInvite?.minMonthly ?? 0;
 
   const effectiveInviteMax =
     activeInvite ? Math.min(activeInvite.maxMonthly, remainingAllowance) : 0;
@@ -552,8 +554,8 @@ const [participants, setParticipants] = useState<Participant[]>([
     !!enrolment &&
     enrolment.accepted &&
     enrolment.read &&
-    remainingAllowance >= activeInvite.minMonthly &&
-    enrolment.amount >= activeInvite.minMonthly &&
+    remainingAllowance >= minMonthly &&
+    enrolment.amount >= minMonthly &&
     enrolment.amount <= effectiveInviteMax;
 
   return (
