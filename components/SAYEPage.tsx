@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Info, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Participant = {
   id: string;
@@ -430,8 +431,6 @@ function SAYEConfigView({
                   </Button>
                 </div>
                 
-                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs"
-                        />
                       </label>
                       <label className="flex flex-col gap-1">
                         <span className="text-[11px] text-slate-500">
@@ -1050,6 +1049,10 @@ function SAYEReportsView({
   );
 }
 
+type SAYEImportsViewProps = {
+  planConfigs: PlanConfig[];
+};
+    
 function SAYEImportsView({ planConfigs }: SAYEImportsViewProps) {
   return (
     <div className="space-y-4 text-xs">
