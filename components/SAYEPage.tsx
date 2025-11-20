@@ -1302,16 +1302,16 @@ export default function SAYEPage() {
                             presented – not wired to live backend.
                           </p>
                         </div>
-                        <Button
-                          className="h-8 px-3 text-xs"
-                          variant="outline"
-                          className="text-xs"
-                          onClick={() =>
-                            alert("In a real build this would open change flow.")
-                          }
-                        >
-                          Start change request
-                        </Button>
+                      <Button
+                        className="h-8 px-3 text-xs"
+                        variant="outline"
+                        onClick={() =>
+                          alert("In a real build this would open change flow.")
+                        }
+                      >
+                        Start change request
+                      </Button>
+
                       </div>
                       <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-4 text-xs text-slate-500">
                         In a production build, this block would show a live
