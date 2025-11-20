@@ -19,7 +19,7 @@ function calculateMaturity(cfg: PlanConfig, grantDate: Date) {
   const remainingMonths = Math.max(
     0,
     Math.round(
-      (maturityDate.getTime - now.getTime()) /
+      (maturityDate.getTime() - now.getTime()) /
         (1000 * 60 * 60 * 24 * 30)
     )
   );
