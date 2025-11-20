@@ -330,6 +330,9 @@ function SAYEConfigView({
   setTab,
   onSelectParticipant,
 }: SAYEConfigViewProps) {
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [draft, setDraft] = useState<PlanConfig | null>(null);
 
   const [editingConfigId, setEditingConfigId] = useState<string | null>(null);
 
