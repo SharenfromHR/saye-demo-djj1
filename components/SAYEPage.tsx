@@ -536,7 +536,7 @@ const [participants, setParticipants] = useState<Participant[]>([
     });
   };
 
-      const handleConfirmEnrolment = () => {
+        const handleConfirmEnrolment = () => {
     if (!activeInvite || !enrolment) return;
 
     setEnrolment((prev) =>
@@ -549,14 +549,15 @@ const [participants, setParticipants] = useState<Participant[]>([
   const effectiveInviteMax =
     activeInvite ? Math.min(activeInvite.maxMonthly, remainingAllowance) : 0;
 
-  const canConfirmEnrolment =
-  !!activeInvite &&
-  !!enrolment &&
-  enrolment.accepted &&
-  enrolment.read &&
-  remainingAllowance >= minMonthly &&
-  enrolment.amount >= minMonthly &&
-  enrolment.amount <= effectiveInviteMax;
+  const canConfirmEnrolment = Boolean(
+    activeInvite &&
+      enrolment &&
+      enrolment.accepted &&
+      enrolment.read &&
+      remainingAllowance >= minMonthly &&
+      enrolment.amount >= minMonthly &&
+      enrolment.amount <= effectiveInviteMax
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
