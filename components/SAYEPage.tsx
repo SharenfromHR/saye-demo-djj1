@@ -6,6 +6,8 @@ import { Button } from "./ui/button";
 import { Info, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+function calculateMaturity(...) { ... }
+
 type Participant = {
   id: string;
   name: string;
