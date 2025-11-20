@@ -14,130 +14,76 @@ type Participant = {
   currency?: string;
   entity?: string;
   country?: string;
-  grantDate?: string;
-  termYears?: number;
-  monthlyContribution?: number;
-  status?: string;
-  contracts?: any[];
-  [key: string]: any;
 };
 
-const formatMoney = (n: number, ccy = "GBP") =>
-  new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: ccy,
-    maximumFractionDigits: 2,
-  }).format(n);
+type PlanStatus = "live" | "matured" | "lapsed" | "cancelled";
 
-function computeMaturity(contractStartISO: string, termMonths: number, missedPayments = 0): Date {
-  const start = new Date(contractStartISO);
-  const y = start.getFullYear();
-  const m = start.getMonth();
-  // Always use the 1st of the month so adding months behaves nicely
-  return new Date(y, m + termMonths + missedPayments, 1);
-}
-
-type PlanStatus = "invite" | "live";
-
-type PlanConfig = {
+type SAYEPlan = {
+  id: string;
+  participantId: string;
   grantName: string;
-  inviteOpen: string; // ISO datetime-local string
-  inviteClose: string;
-  grantDate: string; // ISO date string
-  contractStart: string; // ISO date string
+  grantDate: string;
+  contractStart: string;
+  termMonths: number;
+  monthlyContribution: number;
+  totalSaved: number;
   optionPrice: number;
-  bonusRate: number;
-  minMonthly: number; // minimum monthly contribution allowed in invite
-  maxMonthly: number; // maximum monthly contribution allowed in invite
-  termYears: 3 | 5;
-  ticker: string;
-  exchange: string;
-  termMonths: number; // 36 or 60 typically
-  // Below are really contract-level in real life, but for the mock they sit on the plan
-  monthlyContribution: number; // illustrative contribution for example contract
-  missedPayments: number;
+  currentSharePrice: number;
+  optionsGranted: number;
   status: PlanStatus;
-  paused: boolean;
+  missedPayments: number;
+  pauseMonths: number;
+  payrollId?: string;
+  entity?: string;
 };
 
-const CURRENT_PRICE_GBP = 1.4;
-const TICKER = "DJJ";
-const COMPANY = "DJJ Ltd";
+type InviteConfig = {
+  id: string;
+  name: string;
+  grantName: string;
+  grantDate: string;
+  contractStart: string;
+  termMonths: number;
+  optionPrice: number;
+  minMonthly: number;
+  maxMonthly: number;
+  maxTotalMonthly: number;
+  inviteWindowOpen: string;
+  inviteWindowClose: string;
+  currency: string;
+  interestRate?: number;
+  bonusRate?: number;
+};
 
-interface EnrollmentState {
+type EnrolmentState = {
   amount: number;
   accepted: boolean;
   read: boolean;
   hasApplied: boolean;
-}
+};
 
-export default function SAYEPage() {
-const [view, setView] = useState<
-  "participant" | "config" | "reports" | "imports"
->("participant");
-  const [sayeMenuOpen, setSayeMenuOpen] = useState(true);
-  const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
-  const [planConfigs, setPlanConfigs] = useState<PlanConfig[]>([
-    {
-      grantName: "2024 SAYE Plan",
-      inviteOpen: "2024-02-01T09:00",
-      inviteClose: "2024-02-29T17:00",
-      grantDate: "2024-03-01",
-      contractStart: "2024-03-01",
-      optionPrice: 1.0,
-      bonusRate: 0,
-      minMonthly: 10,
-      maxMonthly: 500,
-      termYears: 3,
-      ticker: TICKER,
-      exchange: "LSE",
-      termMonths: 36,
-      monthlyContribution: 150,
-      missedPayments: 0,
-      status: "live",
-      paused: false,
-    },
-    {
-      grantName: "2025 SAYE Plan",
-      inviteOpen: "2025-02-01T09:00",
-      inviteClose: "2025-02-28T17:00",
-      grantDate: "2025-03-01",
-      contractStart: "2025-03-01",
-      optionPrice: 1.8,
-      bonusRate: 0,
-      minMonthly: 10,
-      maxMonthly: 500,
-      termYears: 3,
-      ticker: TICKER,
-      exchange: "LSE",
-      termMonths: 36,
-      monthlyContribution: 100,
-      missedPayments: 1,
-      status: "live",
-      paused: false,
-    },
-  ]);
-  
-const [participants, setParticipants] = useState<Participant[]>([
+type SAYEHistoryPoint = {
+  monthIndex: number;
+  label: string;
+  savings: number;
+  options: number;
+  isMaturity?: boolean;
+  missed?: boolean;
+};
+
+type PlanConfigTab = "timeline" | "limits" | "participants";
+type ViewMode = "dashboard" | "participant" | "config" | "reports" | "imports";
+
+const mockParticipants: Participant[] = [
   {
     id: "P001",
-    name: "Anita Spreadsheet",
+    name: "Alice Example",
     employeeId: "100123",
-    email: "anita.spreadsheet@example.com",
+    email: "alice@example.com",
     location: "UK",
     currency: "GBP",
-    contracts: [
-      {
-        grantName: "2024 SAYE Plan",
-        monthlyContribution: 250,
-        missedPayments: 0,
-      },
-      {
-        grantName: "2025 SAYE Plan",
-        monthlyContribution: 250,
-        missedPayments: 1,
-      },
-    ],
+    entity: "UK Ltd",
+    country: "United Kingdom",
   },
   {
     id: "P002",
@@ -146,313 +92,843 @@ const [participants, setParticipants] = useState<Participant[]>([
     email: "bill.ding@example.com",
     location: "UK",
     currency: "GBP",
-    contracts: [
-      {
-        grantName: "2024 SAYE Plan",
-        monthlyContribution: 500,
-        missedPayments: 0,
-      },
-      {
-        grantName: "2025 SAYE Plan",
-        monthlyContribution: 0,
-        missedPayments: 0,
-      },
-    ],
+    entity: "UK Ltd",
+    country: "United Kingdom",
   },
   {
     id: "P003",
-    name: "Sal Monella",
-    employeeId: "100789",
-    email: "sal.monella@example.com",
-    location: "UK",
-    currency: "GBP",
-    contracts: [
-      {
-        grantName: "2024 SAYE Plan",
-        monthlyContribution: 300,
-        missedPayments: 2,
-      },
-      {
-        grantName: "2025 SAYE Plan",
-        monthlyContribution: 0,
-        missedPayments: 0,
-      },
-    ],
+    name: "Charlie Shares",
+    employeeId: "200789",
+    email: "charlie@example.com",
+    location: "Norway",
+    currency: "NOK",
+    entity: "Norway AS",
+    country: "Norway",
+  },
+];
+
+const mockPlans: SAYEPlan[] = [
+  {
+    id: "SAYE001",
+    participantId: "P001",
+    grantName: "2022 SAYE Plan",
+    grantDate: "2022-10-01",
+    contractStart: "2022-11-01",
+    termMonths: 36,
+    monthlyContribution: 150,
+    totalSaved: 150 * 24,
+    optionPrice: 2.5,
+    currentSharePrice: 3.8,
+    optionsGranted: Math.round((150 * 36) / 2.5),
+    status: "live",
+    missedPayments: 0,
+    pauseMonths: 0,
+    entity: "UK Ltd",
   },
   {
-    id: "P004",
-    name: "Lara Byte",
-    employeeId: "100990",
-    email: "lara.byte@example.com",
-    location: "UK",
-    currency: "GBP",
-    contracts: [
-      {
-        grantName: "2024 SAYE Plan",
-        monthlyContribution: 200,
-        missedPayments: 0,
-      },
-      {
-        grantName: "2025 SAYE Plan",
-        monthlyContribution: 100,
-        missedPayments: 0,
-      },
-    ],
+    id: "SAYE002",
+    participantId: "P001",
+    grantName: "2023 SAYE Plan",
+    grantDate: "2023-09-01",
+    contractStart: "2023-10-01",
+    termMonths: 60,
+    monthlyContribution: 200,
+    totalSaved: 200 * 12,
+    optionPrice: 2.0,
+    currentSharePrice: 3.8,
+    optionsGranted: Math.round((200 * 60) / 2.0),
+    status: "live",
+    missedPayments: 1,
+    pauseMonths: 0,
+    entity: "UK Ltd",
   },
   {
-    id: "P005",
-    name: "Ola Nordmann",
-    employeeId: "101111",
-    email: "ola.nordmann@example.com",
-    location: "UK",
-    currency: "GBP",
-    contracts: [
-      {
-        grantName: "2024 SAYE Plan",
-        monthlyContribution: 0,
-        missedPayments: 0,
-      },
-      {
-        grantName: "2025 SAYE Plan",
-        monthlyContribution: 500,
-        missedPayments: 0,
-      },
-    ],
+    id: "SAYE003",
+    participantId: "P002",
+    grantName: "2022 SAYE Plan",
+    grantDate: "2022-10-01",
+    contractStart: "2022-11-01",
+    termMonths: 36,
+    monthlyContribution: 500,
+    totalSaved: 500 * 24,
+    optionPrice: 2.5,
+    currentSharePrice: 3.8,
+    optionsGranted: Math.round((500 * 36) / 2.5),
+    status: "live",
+    missedPayments: 0,
+    pauseMonths: 0,
+    entity: "UK Ltd",
   },
   {
-    id: "P006",
-    name: "Penny Wise",
-    employeeId: "101222",
-    email: "penny.wise@example.com",
-    location: "UK",
-    currency: "GBP",
-    contracts: [
-      {
-        grantName: "2024 SAYE Plan",
-        monthlyContribution: 125,
-        missedPayments: 3,
-      },
-      {
-        grantName: "2025 SAYE Plan",
-        monthlyContribution: 125,
-        missedPayments: 0,
-      },
-    ],
+    id: "SAYE004",
+    participantId: "P001",
+    grantName: "2020 SAYE Plan",
+    grantDate: "2020-09-01",
+    contractStart: "2020-10-01",
+    termMonths: 36,
+    monthlyContribution: 75,
+    totalSaved: 75 * 36,
+    optionPrice: 1.8,
+    currentSharePrice: 3.8,
+    optionsGranted: Math.round((75 * 36) / 1.8),
+    status: "matured",
+    missedPayments: 3,
+    pauseMonths: 2,
+    entity: "UK Ltd",
   },
+];
+
+const mockInvites: InviteConfig[] = [
   {
-    id: "P007",
-    name: "Hugh Mann",
-    employeeId: "101333",
-    email: "hugh.mann@example.com",
-    location: "UK",
+    id: "INV2024UK",
+    name: "2024 SAYE UK invite",
+    grantName: "2024 SAYE Plan",
+    grantDate: "2024-09-01",
+    contractStart: "2024-10-01",
+    termMonths: 36,
+    optionPrice: 3.0,
+    minMonthly: 10,
+    maxMonthly: 500,
+    maxTotalMonthly: 500,
+    inviteWindowOpen: "2024-09-15T09:00:00",
+    inviteWindowClose: "2024-10-15T17:00:00",
     currency: "GBP",
-    contracts: [
-      {
-        grantName: "2024 SAYE Plan",
-        monthlyContribution: 400,
-        missedPayments: 0,
-      },
-      {
-        grantName: "2025 SAYE Plan",
-        monthlyContribution: 100,
-        missedPayments: 0,
-      },
-    ],
+    interestRate: 0.02,
   },
+];
+
+type PlanConfig = {
+  id: string;
+  name: string;
+  grantName: string;
+  grantDate: string;
+  contractStart: string;
+  termMonths: number;
+  optionPrice: number;
+  pauseAllowed: boolean;
+  maxPauseMonths: number;
+  maxMissedPayments: number;
+  bonusRate?: number;
+  interestRate?: number;
+  inviteWindowOpen: string;
+  inviteWindowClose: string;
+  currency: string;
+  maxTotalMonthly: number;
+};
+
+const initialPlanConfigs: PlanConfig[] = [
   {
-    id: "P008",
-    name: "Chris P. Bacon",
-    employeeId: "101444",
-    email: "chris.bacon@example.com",
-    location: "UK",
+    id: "CFG2024UK",
+    name: "2024 SAYE UK",
+    grantName: "2024 SAYE Plan",
+    grantDate: "2024-09-01",
+    contractStart: "2024-10-01",
+    termMonths: 36,
+    optionPrice: 3.0,
+    pauseAllowed: true,
+    maxPauseMonths: 12,
+    maxMissedPayments: 12,
+    bonusRate: 0,
+    interestRate: 0.02,
+    inviteWindowOpen: "2024-09-15T09:00",
+    inviteWindowClose: "2024-10-15T17:00",
     currency: "GBP",
-    contracts: [
-      {
-        grantName: "2024 SAYE Plan",
-        monthlyContribution: 50,
-        missedPayments: 0,
-      },
-      {
-        grantName: "2025 SAYE Plan",
-        monthlyContribution: 50,
-        missedPayments: 0,
-      },
-    ],
+    maxTotalMonthly: 500,
   },
-]);
-  
-  const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
-  const [configTab, setConfigTab] = useState<"plans" | "participants">("plans");
+];
 
-  const [modal, setModal] = useState<{
-    type: null | "pause" | "unpause" | "cancel";
-    planIdx: number | null;
-  }>({ type: null, planIdx: null });
+function computeSAYEHistory(plan: SAYEPlan): SAYEHistoryPoint[] {
+  const points: SAYEHistoryPoint[] = [];
+  let savings = 0;
+  let options = 0;
 
-  const [showInvitePanel, setShowInvitePanel] = useState(false);
-  const [enrolment, setEnrolment] = useState<EnrollmentState | null>(null);
+  for (let m = 0; m <= plan.termMonths; m++) {
+    const label = m === 0 ? "Grant" : `Month ${m}`;
 
-    const enriched = useMemo(() => {
-    const now = new Date();
-
-    const livePlans = planConfigs
-      .map((p, configIndex) => ({ ...p, configIndex }))
-      .filter((p) => p.status === "live");
-
-    return livePlans
-      .map((p) => {
-        const start = new Date(p.contractStart);
-        const monthsSinceStart = Math.max(
-          0,
-          (now.getFullYear() - start.getFullYear()) * 12 +
-            (now.getMonth() - start.getMonth())
-        );
-        const savingsAmount = Math.max(
-          0,
-          p.monthlyContribution * (monthsSinceStart - p.missedPayments)
-        );
-        const optionsGranted =
-          (p.monthlyContribution * p.termMonths) / p.optionPrice;
-        const maturityDate = computeMaturity(
-          p.contractStart,
-          p.termMonths,
-          p.missedPayments
-        );
-        const estimatedGain = Math.max(
-          0,
-          (CURRENT_PRICE_GBP - p.optionPrice) * optionsGranted
-        );
-        return {
-          ...p,
-          monthsSinceStart,
-          savingsAmount,
-          optionsGranted,
-          maturityDate,
-          estimatedGain,
-        };
-      })
-      .sort(
-        (a, b) =>
-          new Date(a.contractStart).getTime() -
-          new Date(b.contractStart).getTime()
-      );
-  }, [planConfigs]);
-
-  const visiblePlans = useMemo(() => {
-    // No participant selected – show all live plans
-    if (!selectedParticipant) return enriched;
-
-    const contracts = Array.isArray(selectedParticipant.contracts)
-      ? selectedParticipant.contracts
-      : [];
-
-    // Participant has no enrolments – show nothing
-    if (contracts.length === 0) {
-      return [] as typeof enriched;
+    const missed = m <= plan.missedPayments;
+    const contribution = missed ? 0 : plan.monthlyContribution;
+    savings += contribution;
+    if (!missed) {
+      options += contribution / plan.optionPrice;
     }
 
-    const result: typeof enriched = [];
+    points.push({
+      monthIndex: m,
+      label,
+      savings,
+      options,
+      isMaturity: m === plan.termMonths,
+      missed,
+    });
+  }
 
-    for (const c of contracts) {
-      if (!c || typeof c !== "object") continue;
+  return points;
+}
 
-      const grantName = (c as any).grantName as string | undefined;
-      if (!grantName) continue;
+function formatMoney(value: number, currency: string = "GBP"): string {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
 
-      const base = enriched.find((p) => p.grantName === grantName);
-      if (!base) continue;
+function getStatusBadge(status: PlanStatus): {
+  label: string;
+  className: string;
+} {
+  switch (status) {
+    case "live":
+      return {
+        label: "Live",
+        className:
+          "inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200",
+      };
+    case "matured":
+      return {
+        label: "Matured",
+        className:
+          "inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 ring-1 ring-inset ring-sky-200",
+      };
+    case "lapsed":
+      return {
+        label: "Lapsed",
+        className:
+          "inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 ring-1 ring-inset ring-rose-200",
+      };
+    case "cancelled":
+      return {
+        label: "Cancelled",
+        className:
+          "inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-inset ring-slate-200",
+      };
+    default:
+      return {
+        label: status,
+        className:
+          "inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-inset ring-slate-200",
+      };
+  }
+}
 
-      const monthlyContribution =
-        (c as any).monthlyContribution ?? base.monthlyContribution;
-      const missedPayments =
-        (c as any).missedPayments ?? base.missedPayments ?? 0;
+type SAYEConfigViewProps = {
+  planConfigs: PlanConfig[];
+  setPlanConfigs: React.Dispatch<React.SetStateAction<PlanConfig[]>>;
+  participants: Participant[];
+  setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
+  tab: PlanConfigTab;
+  setTab: (tab: PlanConfigTab) => void;
+  onSelectParticipant: (p: Participant) => void;
+};
 
-      const savingsAmount = Math.max(
-        0,
-        monthlyContribution * (base.monthsSinceStart - missedPayments)
-      );
-      const optionsGranted =
-        (monthlyContribution * base.termMonths) / base.optionPrice;
-      const maturityDate = computeMaturity(
-        base.contractStart,
-        base.termMonths,
-        missedPayments
-      );
-      const estimatedGain = Math.max(
-        0,
-        (CURRENT_PRICE_GBP - base.optionPrice) * optionsGranted
-      );
+function SAYEConfigView({
+  planConfigs,
+  setPlanConfigs,
+  participants,
+  setParticipants,
+  tab,
+  setTab,
+  onSelectParticipant,
+}: SAYEConfigViewProps) {
+  const [editingConfigId, setEditingConfigId] = useState<string | null>(null);
 
-      result.push({
-        ...base,
-        monthlyContribution,
-        missedPayments,
-        savingsAmount,
-        optionsGranted,
-        maturityDate,
-        estimatedGain,
-      });
-    }
-
-    return result.sort(
-      (a, b) =>
-        new Date(a.contractStart).getTime() -
-        new Date(b.contractStart).getTime()
+  const handleConfigChange = (id: string, updates: Partial<PlanConfig>) => {
+    setPlanConfigs((prev) =>
+      prev.map((cfg) => (cfg.id === id ? { ...cfg, ...updates } : cfg))
     );
-  }, [enriched, selectedParticipant]);
-
-  const buildSchedules = (p: (typeof enriched)[number]) => {
-    const start = new Date(p.contractStart);
-    const now = new Date();
-    const lastCompleted = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-
-    type H = { label: string; date: string; amount: number; status: "paid" | "missed" };
-    type U = { label: string; date: string; amount: number; isLast?: boolean };
-
-    const history: H[] = [];
-    const upcoming: U[] = [];
-
-    const completedMonths: Date[] = [];
-    for (
-      let d = new Date(start.getFullYear(), start.getMonth(), 1);
-      d <= lastCompleted;
-      d = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-    ) {
-      completedMonths.push(new Date(d));
-    }
-
-    const missedSet = new Set<string>();
-    for (let i = 0; i < (p.missedPayments || 0); i++) {
-      const md = completedMonths[completedMonths.length - 1 - i];
-      if (md) missedSet.add(`${md.getFullYear()}:${md.getMonth()}`);
-    }
-
-    for (const d of completedMonths) {
-      const label = d.toLocaleString(undefined, { month: "long", year: "numeric" });
-      const date = new Date(d.getFullYear(), d.getMonth(), 10).toLocaleDateString();
-      const key = `${d.getFullYear()}:${d.getMonth()}`;
-      const isMissed = missedSet.has(key);
-      history.push({ label, date, amount: p.monthlyContribution, status: isMissed ? "missed" : "paid" });
-    }
-
-    const maturityMonthStart = new Date(p.maturityDate.getFullYear(), p.maturityDate.getMonth(), 1);
-    for (
-      let d = new Date(now.getFullYear(), now.getMonth(), 10);
-      d < maturityMonthStart;
-      d = new Date(d.getFullYear(), d.getMonth() + 1, 10)
-    ) {
-      upcoming.push({
-        label: d.toLocaleString(undefined, { month: "long", year: "numeric" }),
-        date: d.toLocaleDateString(),
-        amount: p.monthlyContribution,
-      });
-    }
-    if (upcoming.length) upcoming[upcoming.length - 1].isLast = true;
-
-    return { history, upcoming };
   };
 
-    const totalMonthly = visiblePlans.reduce(
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">
+            SAYE configuration
+          </h2>
+          <p className="text-xs text-slate-500">
+            Configure invite windows, limits and participant rules for each
+            SAYE grant.
+          </p>
+        </div>
+        <div className="inline-flex gap-2 rounded-full bg-slate-100 p-1 text-xs">
+          {["timeline", "limits", "participants"].map((key) => {
+            const keyTyped = key as PlanConfigTab;
+            return (
+              <button
+                key={key}
+                onClick={() => setTab(keyTyped)}
+                className={`rounded-full px-3 py-1 transition ${
+                  tab === keyTyped
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {keyTyped === "timeline" && "Timeline"}
+                {keyTyped === "limits" && "Limits"}
+                {keyTyped === "participants" && "Participants"}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {tab === "timeline" && (
+        <div className="space-y-3">
+          {planConfigs.map((cfg) => (
+            <Card
+              key={cfg.id}
+              className="border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        {cfg.name}
+                      </h3>
+                      <span className="text-[11px] rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
+                        {cfg.currency}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Grant date {cfg.grantDate}, contract start{" "}
+                      {cfg.contractStart}, {cfg.termMonths}-month term.
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-3 text-xs text-slate-600">
+                      <div>
+                        Invite window:{" "}
+                        <span className="font-medium">
+                          {cfg.inviteWindowOpen.replace("T", " ")}
+                        </span>{" "}
+                        →{" "}
+                        <span className="font-medium">
+                          {cfg.inviteWindowClose.replace("T", " ")}
+                        </span>
+                      </div>
+                      <div>
+                        Option price:{" "}
+                        <span className="font-medium">
+                          {formatMoney(cfg.optionPrice, cfg.currency)}
+                        </span>
+                      </div>
+                      <div>
+                        Term:{" "}
+                        <span className="font-medium">
+                          {cfg.termMonths} months
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setEditingConfigId(
+                        editingConfigId === cfg.id ? null : cfg.id
+                      )
+                    }
+                  >
+                    <ChevronDown className="mr-1 h-3 w-3" />
+                    Details
+                  </Button>
+                </div>
+
+                {editingConfigId === cfg.id && (
+                  <div className="mt-4 grid gap-4 border-t border-slate-100 pt-4 text-xs md:grid-cols-2">
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-slate-800">
+                        Invite window
+                      </h4>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[11px] text-slate-500">
+                          Opens
+                        </span>
+                        <input
+                          type="datetime-local"
+                          value={cfg.inviteWindowOpen}
+                          onChange={(e) =>
+                            handleConfigChange(cfg.id, {
+                              inviteWindowOpen: e.target.value,
+                            })
+                          }
+                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[11px] text-slate-500">
+                          Closes
+                        </span>
+                        <input
+                          type="datetime-local"
+                          value={cfg.inviteWindowClose}
+                          onChange={(e) =>
+                            handleConfigChange(cfg.id, {
+                              inviteWindowClose: e.target.value,
+                            })
+                          }
+                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-slate-800">
+                        Limits & gains
+                      </h4>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[11px] text-slate-500">
+                          Option price ({cfg.currency})
+                        </span>
+                        <input
+                          type="number"
+                          value={cfg.optionPrice}
+                          onChange={(e) =>
+                            handleConfigChange(cfg.id, {
+                              optionPrice: Number(e.target.value) || 0,
+                            })
+                          }
+                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs"
+                        />
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="flex flex-col gap-1">
+                          <span className="text-[11px] text-slate-500">
+                            Max total monthly ({cfg.currency})
+                          </span>
+                          <input
+                            type="number"
+                            value={cfg.maxTotalMonthly}
+                            onChange={(e) =>
+                              handleConfigChange(cfg.id, {
+                                maxTotalMonthly: Number(e.target.value) || 0,
+                              })
+                            }
+                            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="text-[11px] text-slate-500">
+                            Interest rate (%)
+                          </span>
+                          <input
+                            type="number"
+                            value={(cfg.interestRate ?? 0) * 100}
+                            onChange={(e) =>
+                              handleConfigChange(cfg.id, {
+                                interestRate:
+                                  (Number(e.target.value) || 0) / 100,
+                              })
+                            }
+                            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs"
+                          />
+                        </label>
+                      </div>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[11px] text-slate-500">
+                          Bonus rate (% of savings)
+                        </span>
+                        <input
+                          type="number"
+                          value={(cfg.bonusRate ?? 0) * 100}
+                          onChange={(e) =>
+                            handleConfigChange(cfg.id, {
+                              bonusRate: (Number(e.target.value) || 0) / 100,
+                            })
+                          }
+                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-slate-800">
+                        Pause & lapse rules
+                      </h4>
+                      <label className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] text-slate-500">
+                          Allow pause?
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={cfg.pauseAllowed}
+                          onChange={(e) =>
+                            handleConfigChange(cfg.id, {
+                              pauseAllowed: e.target.checked,
+                            })
+                          }
+                          className="h-3 w-3 rounded border-slate-300 text-indigo-600"
+                        />
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="flex flex-col gap-1">
+                          <span className="text-[11px] text-slate-500">
+                            Max pause months
+                          </span>
+                          <input
+                            type="number"
+                            value={cfg.maxPauseMonths}
+                            onChange={(e) =>
+                              handleConfigChange(cfg.id, {
+                                maxPauseMonths: Number(e.target.value) || 0,
+                              })
+                            }
+                            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="text-[11px] text-slate-500">
+                            Max missed payments
+                          </span>
+                          <input
+                            type="number"
+                            value={cfg.maxMissedPayments}
+                            onChange={(e) =>
+                              handleConfigChange(cfg.id, {
+                                maxMissedPayments: Number(e.target.value) || 0,
+                              })
+                            }
+                            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {tab === "limits" && (
+        <div className="space-y-3 text-xs">
+          <p className="text-slate-500">
+            UK Schedule 3 plans must respect HMRC limits. Use this view to
+            sanity-check config before launch.
+          </p>
+          <table className="min-w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-xs">
+            <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-3 py-2 text-left">Plan</th>
+                <th className="px-3 py-2 text-left">Currency</th>
+                <th className="px-3 py-2 text-right">Max total monthly</th>
+                <th className="px-3 py-2 text-right">Term</th>
+                <th className="px-3 py-2 text-right">HMRC ok?</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {planConfigs.map((cfg) => {
+                const hmrcCompliant =
+                  cfg.currency === "GBP" &&
+                  cfg.maxTotalMonthly <= 500 &&
+                  (cfg.termMonths === 36 || cfg.termMonths === 60);
+                return (
+                  <tr key={cfg.id} className="hover:bg-slate-50/80">
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-slate-900">
+                        {cfg.name}
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        {cfg.grantName}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-slate-600">
+                      {cfg.currency}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {formatMoney(cfg.maxTotalMonthly, cfg.currency)}
+                    </td>
+                    <td className="px-3 py-2 text-right text-slate-600">
+                      {cfg.termMonths} months
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ring-1 ring-inset ${
+                          hmrcCompliant
+                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                            : "bg-amber-50 text-amber-700 ring-amber-200"
+                        }`}
+                      >
+                        {hmrcCompliant ? "Within limits" : "Check limits"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {tab === "participants" && (
+        <div className="space-y-3 text-xs">
+          <div className="flex items-center justify-between">
+            <p className="text-slate-500">
+              View participants and their current SAYE contributions compared to
+              plan limits.
+            </p>
+            <span className="text-[11px] rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">
+              Demo data
+            </span>
+          </div>
+
+          <table className="min-w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-xs">
+            <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-3 py-2 text-left">Participant</th>
+                <th className="px-3 py-2 text-left">Employee ID</th>
+                <th className="px-3 py-2 text-left">Location</th>
+                <th className="px-3 py-2 text-right">Current monthly</th>
+                <th className="px-3 py-2 text-right">Currency</th>
+                <th className="px-3 py-2 text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {participants.map((p) => {
+                const participantPlans = mockPlans.filter(
+                  (pl) => pl.participantId === p.id && pl.status === "live"
+                );
+                const totalMonthly = participantPlans.reduce(
+                  (sum, pl) => sum + pl.monthlyContribution,
+                  0
+                );
+                const overCap = totalMonthly > 500;
+
+                return (
+                  <tr key={p.id} className="hover:bg-slate-50/80">
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => onSelectParticipant(p)}
+                        className="text-indigo-600 hover:underline"
+                      >
+                        {p.name}
+                      </button>
+                      <div className="text-[11px] text-slate-500">
+                        {p.email}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-slate-600">
+                      {p.employeeId}
+                    </td>
+                    <td className="px-3 py-2 text-slate-600">
+                      {p.location}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {formatMoney(totalMonthly, p.currency || "GBP")}
+                    </td>
+                    <td className="px-3 py-2 text-right text-slate-600">
+                      {p.currency || "GBP"}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ring-1 ring-inset ${
+                          overCap
+                            ? "bg-rose-50 text-rose-700 ring-rose-200"
+                            : totalMonthly >= 400
+                            ? "bg-amber-50 text-amber-700 ring-amber-200"
+                            : "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                        }`}
+                      >
+                        {overCap ? "Over cap" : "Within cap"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type SAYEReportsViewProps = {
+  plans: SAYEPlan[];
+  planConfigs: PlanConfig[];
+};
+
+function SAYEReportsView({ plans, planConfigs }: SAYEReportsViewProps) {
+  const withConfig = plans.map((p) => {
+    const cfg = planConfigs.find((c) => c.grantName === p.grantName);
+    return {
+      ...p,
+      maxTotalMonthly: cfg?.maxTotalMonthly ?? 0,
+    };
+  });
+
+  const breaches = withConfig
+    .filter((p) => p.status === "live")
+    .map((p) => ({
+      ...p,
+      overCap: p.monthlyContribution > (p.maxTotalMonthly || 0),
+    }));
+
+  return (
+    <div className="space-y-4 text-xs">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">
+            Reporting & limits
+          </h2>
+          <p className="text-xs text-slate-500">
+            Simple export-style view to check who&apos;s close to or over
+            limits.
+          </p>
+        </div>
+        <Button variant="outline" size="sm">
+          Export CSV
+        </Button>
+      </div>
+
+      <table className="min-w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-xs">
+        <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="px-3 py-2 text-left">Participant</th>
+            <th className="px-3 py-2 text-left">Grant</th>
+            <th className="px-3 py-2 text-right">Monthly</th>
+            <th className="px-3 py-2 text-right">Max total</th>
+            <th className="px-3 py-2 text-right">Status</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {breaches.map((p) => {
+            const participant = mockParticipants.find(
+              (pt) => pt.id === p.participantId
+            );
+            return (
+              <tr key={p.id} className="hover:bg-slate-50/80">
+                <td className="px-3 py-2">
+                  <div className="font-medium text-slate-900">
+                    {participant?.name ?? p.participantId}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    {participant?.employeeId}
+                  </div>
+                </td>
+                <td className="px-3 py-2 text-slate-600">{p.grantName}</td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {formatMoney(
+                    p.monthlyContribution,
+                    participant?.currency || "GBP"
+                  )}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {p.maxTotalMonthly
+                    ? formatMoney(
+                        p.maxTotalMonthly,
+                        participant?.currency || "GBP"
+                      )
+                    : "-"}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ring-1 ring-inset ${
+                      p.overCap
+                        ? "bg-rose-50 text-rose-700 ring-rose-200"
+                        : "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                    }`}
+                  >
+                    {p.overCap ? "Over cap" : "Within cap"}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+type SAYEImportsViewProps = {
+  planConfigs: PlanConfig[];
+};
+
+function SAYEImportsView({ planConfigs }: SAYEImportsViewProps) {
+  return (
+    <div className="space-y-4 text-xs">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">
+            Imports & files
+          </h2>
+          <p className="text-xs text-slate-500">
+            Simple demo view for savings carrier / payroll files.
+          </p>
+        </div>
+        <Button variant="outline" size="sm">
+          Download templates
+        </Button>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-4 space-y-2">
+            <h3 className="text-sm font-semibold text-slate-900">
+              Payroll deduction file
+            </h3>
+            <p className="text-xs text-slate-500">
+              Template showing how monthly deductions should be sent to Optio.
+            </p>
+            <ul className="list-disc pl-4 text-xs text-slate-600 space-y-1">
+              <li>One line per participant, per month.</li>
+              <li>Must match internal ID and entity shown in the portal.</li>
+              <li>
+                Use positive values only. Refunds handled via adjustment file.
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-4 space-y-2">
+            <h3 className="text-sm font-semibold text-slate-900">
+              Savings carrier file
+            </h3>
+            <p className="text-xs text-slate-500">
+              High-level view of what Optio expects from savings carrier
+              extracts.
+            </p>
+            <ul className="list-disc pl-4 text-xs text-slate-600 space-y-1">
+              <li>Transaction date, amount, currency, participant ID.</li>
+              <li>Separate files per client entity.</li>
+              <li>Reconciliation report available per period.</li>
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+export default function SAYEPage() {
+  const [participants] = useState<Participant[]>(mockParticipants);
+  const [plans] = useState<SAYEPlan[]>(mockPlans);
+  const [planConfigs, setPlanConfigs] =
+    useState<PlanConfig[]>(initialPlanConfigs);
+  const [view, setView] = useState<ViewMode>("dashboard");
+  const [selectedParticipant, setSelectedParticipant] =
+    useState<Participant | null>(mockParticipants[0]);
+  const [configTab, setConfigTab] = useState<PlanConfigTab>("timeline");
+  const [showModal, setShowModal] = useState(false);
+  const [modalPlan, setModalPlan] = useState<SAYEPlan | null>(null);
+  const [modalAction, setModalAction] = useState<"pause" | "cancel" | null>(
+    null
+  );
+  const [modalChoice, setModalChoice] = useState<string | null>(null);
+
+  const [activeInvite] = useState<InviteConfig | null>(mockInvites[0] ?? null);
+  const [showInvitePanel, setShowInvitePanel] = useState(false);
+  const [enrolment, setEnrolment] = useState<EnrolmentState | null>(null);
+
+  const visiblePlans = useMemo(() => {
+    if (!selectedParticipant) return [];
+    return plans.filter((p) => p.participantId === selectedParticipant.id);
+  }, [plans, selectedParticipant]);
+
+  const totalMonthly = visiblePlans.reduce(
     (sum, p) => sum + p.monthlyContribution,
     0
   );
@@ -466,60 +942,76 @@ const [participants, setParticipants] = useState<Participant[]>([
       ? "bg-amber-50 text-amber-700 ring-amber-200"
       : "bg-emerald-50 text-emerald-700 ring-emerald-200";
 
+  const selectedParticipantName = selectedParticipant?.name ?? "Participant";
 
-  const nowForInvites = new Date();
-  const openInvites = planConfigs.filter((p) => {
-    if (p.status !== "invite") return false;
-    const open = new Date(p.inviteOpen);
-    const close = new Date(p.inviteClose);
-    return open <= nowForInvites && nowForInvites <= close;
-  });
+  const enriched = useMemo(
+    () =>
+      visiblePlans.map((p) => {
+        const history = computeSAYEHistory(p);
+        const maturityPoint = history.find((h) => h.isMaturity);
+        const monthsSinceStart = history.length - 1;
+        const maturityDate = new Date(p.contractStart);
+        maturityDate.setMonth(maturityDate.getMonth() + p.termMonths);
 
-  const activeInvite = openInvites[0] || null;
-  const minInviteMonthly =
-    openInvites.length > 0 ? Math.min(...openInvites.map((p) => p.minMonthly || 0)) : null;
-  const maxInviteMonthly =
-    openInvites.length > 0 ? Math.max(...openInvites.map((p) => p.maxMonthly || 0)) : null;
+        const optionsGranted = maturityPoint?.options ?? p.optionsGranted;
+        const savingsAmount = maturityPoint?.savings ?? p.totalSaved;
+        const currentValue = optionsGranted * p.currentSharePrice;
+        const exerciseGain = optionsGranted * (p.currentSharePrice - p.optionPrice);
+        const cashAlt = savingsAmount;
+        const estimatedGain = Math.max(exerciseGain, cashAlt);
 
-  const hasApplied = !!enrolment?.hasApplied && !!activeInvite;
+        return {
+          ...p,
+          monthsSinceStart,
+          savingsAmount,
+          optionsGranted,
+          maturityDate,
+          estimatedGain,
+          currentValue,
+          exerciseGain,
+          cashAlt,
+        };
+      }),
+    [visiblePlans]
+  );
 
-  const openPause = (idx: number) => setModal({ type: "pause", planIdx: idx });
-  const openUnpause = (idx: number) => setModal({ type: "unpause", planIdx: idx });
-  const openCancel = (idx: number) => setModal({ type: "cancel", planIdx: idx });
-  const closeModal = () => setModal({ type: null, planIdx: null });
-
-  const handleOpenParticipantFromConfig = (participant: Participant) => {
-    setSelectedParticipant(participant);
-    setView("participant");
+  const openModal = (plan: SAYEPlan, action: "pause" | "cancel") => {
+    setModalPlan(plan);
+    setModalAction(action);
+    setModalChoice(null);
+    setShowModal(true);
   };
 
-  const confirmModal = () => {
-    const idx = modal.planIdx;
-    if (idx == null) return closeModal();
-    const plan = enriched[idx];
-    if (!plan) return closeModal();
+  const closeModal = () => {
+    setShowModal(false);
+    setModalPlan(null);
+    setModalAction(null);
+    setModalChoice(null);
+  };
 
-    if (modal.type === "pause") {
-      setPlanConfigs((prev) =>
-        prev.map((cfg, i) => (i === plan.configIndex ? { ...cfg, paused: true } : cfg))
+  const handleConfirmModal = () => {
+    if (!modalPlan || !modalAction || !modalChoice) {
+      return;
+    }
+
+    if (modalAction === "pause") {
+      alert(
+        `Pause requested for ${modalPlan.grantName} (${modalChoice} months). This is a demo only.`
       );
-    } else if (modal.type === "unpause") {
-      setPlanConfigs((prev) =>
-        prev.map((cfg, i) => (i === plan.configIndex ? { ...cfg, paused: false } : cfg))
+    } else if (modalAction === "cancel") {
+      alert(
+        `Cancel & refund requested for ${modalPlan.grantName}. You will lose the right to exercise options.`
       );
-    } else if (modal.type === "cancel") {
-      alert(`Cancel & refund requested for ${plan.grantName}. You will lose the right to exercise options.`);
     }
     closeModal();
   };
 
-    const toggleInvitePanel = () => {
+  const toggleInvitePanel = () => {
     if (!activeInvite) return;
 
     setShowInvitePanel((prev) => {
       const next = !prev;
 
-      // If they open the panel for the first time, pre-fill with a mid value
       if (next && !enrolment && activeInvite) {
         const mid =
           (activeInvite.minMonthly + activeInvite.maxMonthly) / 2;
@@ -576,547 +1068,892 @@ const [participants, setParticipants] = useState<Participant[]>([
                   </div>
                 )
               )}
-              
-             <div className="space-y-1">
-  <button
-    type="button"
-    onClick={() => setSayeMenuOpen((o) => !o)}
-    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm transition ${
-      view === "participant" ||
-      view === "config" ||
-      view === "reports" ||
-      view === "imports"
-        ? "bg-white shadow-sm ring-1 ring-slate-200 text-slate-900"
-        : "text-slate-600 hover:bg-white/60"
-    }`}
-  >
-    <span>SAYE</span>
-    <ChevronDown
-      className={`h-4 w-4 transition-transform ${
-        sayeMenuOpen ? "rotate-180 text-emerald-600" : "text-slate-400"
-      }`}
-    />
-  </button>
-  {sayeMenuOpen && (
-    <div className="ml-6 space-y-1">
-      <button
-        type="button"
-        onClick={() => setView("participant")}
-        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs ${
-          view === "participant"
-            ? "bg-slate-900 text-white"
-            : "text-slate-600 hover:bg-white/70"
-        }`}
-      >
-        Participant view
-      </button>
-      <button
-        type="button"
-        onClick={() => setView("config")}
-        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs ${
-          view === "config"
-            ? "bg-slate-900 text-white"
-            : "text-slate-600 hover:bg-white/70"
-        }`}
-      >
-        Configuration
-      </button>
-      <button
-        type="button"
-        onClick={() => setView("reports")}
-        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs ${
-          view === "reports"
-            ? "bg-slate-900 text-white"
-            : "text-slate-600 hover:bg-white/70"
-        }`}
-      >
-        Reports
-      </button>
-      <button
-        type="button"
-        onClick={() => setView("imports")}
-        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs ${
-          view === "imports"
-            ? "bg-slate-900 text-white"
-            : "text-slate-600 hover:bg-white/70"
-        }`}
-      >
-        Imports
-      </button>
-    </div>
-  )}
-</div>
+              <div className="mt-4 space-y-1">
+                <button
+                  onClick={() => setView("dashboard")}
+                  className={`w-full rounded-xl px-3 py-2 text-left text-sm ${
+                    view === "dashboard"
+                      ? "bg-slate-900 text-slate-50 shadow-sm"
+                      : "bg-white text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  Participant view (demo)
+                </button>
+                <button
+                  onClick={() => setView("config")}
+                  className={`w-full rounded-xl px-3 py-2 text-left text-sm ${
+                    view === "config"
+                      ? "bg-slate-900 text-slate-50 shadow-sm"
+                      : "bg-white text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  Config / limits
+                </button>
+                <button
+                  onClick={() => setView("reports")}
+                  className={`w-full rounded-xl px-3 py-2 text-left text-sm ${
+                    view === "reports"
+                      ? "bg-slate-900 text-slate-50 shadow-sm"
+                      : "bg-white text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  Reports
+                </button>
+                <button
+                  onClick={() => setView("imports")}
+                  className={`w-full rounded-xl px-3 py-2 text-left text-sm ${
+                    view === "imports"
+                      ? "bg-slate-900 text-slate-50 shadow-sm"
+                      : "bg-white text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  Imports (demo)
+                </button>
+              </div>
 
-
-              <div className="px-3 py-2 rounded-xl text-slate-600 hover:bg:white/60 cursor-default">
-                Support
+              <div className="mt-6 space-y-3 rounded-2xl bg-slate-900 px-3 py-3 text-slate-50 shadow-sm">
+                <div className="text-xs font-medium text-slate-300">
+                  Demo participant selector
+                </div>
+                <div className="space-y-1">
+                  {participants.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setSelectedParticipant(p);
+                        setView("dashboard");
+                      }}
+                      className={`w-full rounded-lg px-2 py-1 text-left text-xs ${
+                        selectedParticipant?.id === p.id
+                          ? "bg-slate-700 text-slate-50"
+                          : "text-slate-200 hover:bg-slate-800"
+                      }`}
+                    >
+                      <div className="font-medium">{p.name}</div>
+                      <div className="text-[11px] text-slate-400">
+                        {p.employeeId} · {p.location}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </nav>
-
-            <div className="mt-6 p-4 rounded-2xl shadow-sm ring-1 ring-slate-200 bg-white">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-md bg-slate-900 text-white flex items-center justify-center text-xs font-semibold">
-                  DJJ
-                </div>
-                <div className="text-sm font-medium text-slate-808">{COMPANY}</div>
-              </div>
-              <div className="mt-3">
-                <div className="text-2xl font-semibold text-slate-900">£{CURRENT_PRICE_GBP.toFixed(2)}</div>
-                <div className="text-xs text-slate-500 mt-1">
-                  {TICKER} • Latest date {new Date().toLocaleDateString()}
-                </div>
-              </div>
-            </div>
           </aside>
 
-          <main className="flex-1">
-                        {view === "participant" && (
-              <div className="space-y-5">
-                                {selectedParticipant && (
-                  <div className="flex justify-end">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-slate-900 text-white text-xs px-3 py-1.5 shadow-sm">
-                      <span>
-                        Viewing as:{" "}
-                        <span className="font-semibold">
-                          {selectedParticipant.name}
+          {/* Main content */}
+          <main className="flex-1 space-y-4">
+            {view === "dashboard" && selectedParticipant && (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h1 className="text-xl font-semibold text-slate-900">
+                      Hi {selectedParticipantName}, here&apos;s your SAYE
+                      snapshot
+                    </h1>
+                    <p className="text-xs text-slate-500">
+                      This is a demo view showing how Optio could present
+                      participant-level SAYE details, with HMRC cap logic
+                      built-in.
+                    </p>
+                  </div>
+                  <div
+                    className={`inline-flex flex-col rounded-2xl px-3 py-2 text-xs ring-1 ring-inset ${capClasses}`}
+                  >
+                    <span className="text-[11px] uppercase tracking-wide">
+                      Total live monthly savings
+                    </span>
+                    <span className="text-sm font-semibold">
+                      {formatMoney(totalMonthly, selectedParticipant.currency)}
+                    </span>
+                    <span className="text-[11px]">
+                      Overall cap: {formatMoney(CAP, selectedParticipant.currency)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card className="border-slate-200 shadow-sm md:col-span-2">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Live SAYE plans
+                          </div>
+                          <div className="mt-1 text-sm text-slate-600">
+                            {selectedParticipantName} currently has{" "}
+                            <span className="font-semibold">
+                              {visiblePlans.filter(
+                                (p) => p.status === "live"
+                              ).length}
+                            </span>{" "}
+                            live contracts.
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => alert("Export coming soon")}
+                        >
+                          Export summary
+                        </Button>
+                      </div>
+
+                      <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <table className="min-w-full text-xs">
+                          <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                            <tr>
+                              <th className="px-3 py-2 text-left">Grant</th>
+                              <th className="px-3 py-2 text-right">
+                                Monthly
+                              </th>
+                              <th className="px-3 py-2 text-right">
+                                Term
+                              </th>
+                              <th className="px-3 py-2 text-right">
+                                Options @ grant
+                              </th>
+                              <th className="px-3 py-2 text-right">
+                                Status
+                              </th>
+                              <th className="px-3 py-2 text-right">
+                                Actions
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {enriched.map((plan) => {
+                              const badge = getStatusBadge(plan.status);
+                              return (
+                                <tr
+                                  key={plan.id}
+                                  className="hover:bg-slate-50/80"
+                                >
+                                  <td className="px-3 py-2">
+                                    <div className="font-medium text-slate-900">
+                                      {plan.grantName}
+                                    </div>
+                                    <div className="text-[11px] text-slate-500">
+                                      Contract start{" "}
+                                      {plan.contractStart} ·{" "}
+                                      {plan.termMonths} months
+                                    </div>
+                                  </td>
+                                  <td className="px-3 py-2 text-right tabular-nums">
+                                    {formatMoney(
+                                      plan.monthlyContribution,
+                                      selectedParticipant.currency
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 text-right text-slate-600">
+                                    {plan.termMonths} months
+                                  </td>
+                                  <td className="px-3 py-2 text-right tabular-nums">
+                                    {plan.optionsGranted.toLocaleString()}
+                                  </td>
+                                  <td className="px-3 py-2 text-right">
+                                    <span className={badge.className}>
+                                      {badge.label}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-right">
+                                    {plan.status === "live" ? (
+                                      <div className="inline-flex gap-1">
+                                        <Button
+                                          size="xs"
+                                          variant="outline"
+                                          className="text-[11px]"
+                                          onClick={() =>
+                                            openModal(plan, "pause")
+                                          }
+                                        >
+                                          Pause
+                                        </Button>
+                                        <Button
+                                          size="xs"
+                                          variant="outline"
+                                          className="text-[11px]"
+                                          onClick={() =>
+                                            openModal(plan, "cancel")
+                                          }
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[11px] text-slate-400">
+                                        No actions
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-slate-200 shadow-sm">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Plan rules (demo)
+                          </div>
+                          <p className="text-xs text-slate-600">
+                            UK SAYE: £500 overall cap, 3 or 5 year terms.
+                          </p>
+                        </div>
+                      </div>
+
+                      <ul className="space-y-2 text-xs text-slate-600">
+                        <li className="flex gap-2">
+                          <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          <span>
+                            Maximum total monthly savings across all SAYE plans:
+                            <span className="font-semibold">
+                              {" "}
+                              £500 per month
+                            </span>
+                            .
+                          </span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-sky-500" />
+                          <span>
+                            If a participant is already at £500 across live
+                            plans, new invites must be prevented or capped down
+                            to remaining headroom.
+                          </span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-amber-500" />
+                          <span>
+                            Missed payments extend the maturity by one month
+                            each. 13 missed leads to lapse.
+                          </span>
+                        </li>
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card className="border-slate-200 shadow-sm">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Current position (demo)
+                          </div>
+                          <p className="text-xs text-slate-600">
+                            Based on grant terms vs today&apos;s share price.
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200">
+                          Not investment advice
                         </span>
-                      </span>
-                      <button
-                        type="button"
-                        className="h-5 w-5 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-xs"
-                        onClick={() => {
-                          setSelectedParticipant(null);
-                          setConfigTab("participants");
-                          setView("config");
-                        }}
-                        aria-label="Clear participant view"
-                      >
-                        ×
-                      </button>
+                      </div>
+
+                      <div className="space-y-2 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-600">
+                            Total saved at maturity (demo)
+                          </span>
+                          <span className="font-semibold text-slate-900">
+                            {formatMoney(
+                              enriched.reduce(
+                                (sum, p) => sum + p.savingsAmount,
+                                0
+                              ),
+                              selectedParticipant.currency
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-600">
+                            Total options (grant terms)
+                          </span>
+                          <span className="font-semibold text-slate-900">
+                            {enriched
+                              .reduce(
+                                (sum, p) => sum + p.optionsGranted,
+                                0
+                              )
+                              .toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-600">
+                            Illustrative gain (higher of cash vs exercise)
+                          </span>
+                          <span className="font-semibold text-emerald-700">
+                            {formatMoney(
+                              enriched.reduce(
+                                (sum, p) => sum + p.estimatedGain,
+                                0
+                              ),
+                              selectedParticipant.currency
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-slate-200 shadow-sm md:col-span-2">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Change my savings
+                          </div>
+                          <p className="text-xs text-slate-600">
+                            This is a demo of how savings changes could be
+                            presented – not wired to live backend.
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs"
+                          onClick={() =>
+                            alert("In a real build this would open change flow.")
+                          }
+                        >
+                          Start change request
+                        </Button>
+                      </div>
+                      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-4 text-xs text-slate-500">
+                        In a production build, this block would show a live
+                        journey for pausing, reducing or increasing savings,
+                        wired into Optio&apos;s API and your savings carrier.
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {activeInvite && (
+                  <Card className="border-slate-200 shadow-sm">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Invite · {activeInvite.name}
+                          </div>
+                          <p className="text-xs text-slate-600">
+                            Demo of how an invite panel could respect overall
+                            £500 caps and per-plan limits.
+                          </p>
+                        </div>
+                        <Button
+                          className="h-8 px-3 text-xs"
+                          onClick={toggleInvitePanel}
+                        >
+                          {showInvitePanel ? "Hide invite" : "View invite"}
+                        </Button>
+                      </div>
+
+                      {showInvitePanel && enrolment && (
+                        <div className="grid gap-4 md:grid-cols-[minmax(0,2fr),minmax(0,1.4fr)]">
+                          <div className="space-y-3">
+                            <div className="rounded-xl border border-slate-200 bg-white p-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <h3 className="text-sm font-semibold text-slate-900">
+                                    2024 SAYE Plan – {activeInvite.termMonths / 12}-year
+                                    contract
+                                  </h3>
+                                  <p className="text-xs text-slate-500">
+                                    Save from your net pay each month. At maturity, use
+                                    savings to buy shares at £
+                                    {activeInvite.optionPrice.toFixed(2)} or take cash.
+                                  </p>
+                                </div>
+                                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                                  Demo only
+                                </span>
+                              </div>
+
+                              <div className="mt-3 grid gap-3 text-xs md:grid-cols-2">
+                                <div className="space-y-1">
+                                  <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                                    Invite window
+                                  </div>
+                                  <div className="font-medium text-slate-900">
+                                    {activeInvite.inviteWindowOpen.replace(
+                                      "T",
+                                      " "
+                                    )}{" "}
+                                    →{" "}
+                                    {activeInvite.inviteWindowClose.replace(
+                                      "T",
+                                      " "
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-slate-500">
+                                    All elections must be received before the
+                                    invite closes.
+                                  </p>
+                                </div>
+                                <div className="space-y-1">
+                                  <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                                    Key details
+                                  </div>
+                                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                    <div>
+                                      Option price:{" "}
+                                      <span className="font-medium">
+                                        {formatMoney(
+                                          activeInvite.optionPrice,
+                                          selectedParticipant.currency
+                                        )}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      Term:{" "}
+                                      <span className="font-medium">
+                                        {activeInvite.termMonths / 12} years
+                                      </span>
+                                    </div>
+                                    <div>
+                                      Min / max monthly:{" "}
+                                      <span className="font-medium">
+                                        {formatMoney(
+                                          activeInvite.minMonthly,
+                                          selectedParticipant.currency
+                                        )}{" "}
+                                        –{" "}
+                                        {formatMoney(
+                                          activeInvite.maxMonthly,
+                                          selectedParticipant.currency
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  <h3 className="text-sm font-semibold text-slate-900">
+                                    Step 1 · Check overall cap
+                                  </h3>
+                                  <p className="text-xs text-slate-500">
+                                    You can&apos;t exceed £500 per month across all
+                                    live SAYE plans.
+                                  </p>
+                                </div>
+                                <div
+                                  className={`rounded-full px-3 py-1 text-[11px] ring-1 ring-inset ${
+                                    totalMonthly > CAP
+                                      ? "bg-rose-50 text-rose-700 ring-rose-200"
+                                      : totalMonthly >= CAP * 0.8
+                                      ? "bg-amber-50 text-amber-700 ring-amber-200"
+                                      : "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                                  }`}
+                                >
+                                  Currently saving:{" "}
+                                  <span className="font-semibold">
+                                    {formatMoney(
+                                      totalMonthly,
+                                      selectedParticipant.currency
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                                You have{" "}
+                                <span className="font-semibold">
+                                  {formatMoney(
+                                    remainingAllowance,
+                                    selectedParticipant.currency
+                                  )}{" "}
+                                  of headroom
+                                </span>{" "}
+                                before you reach the £500 overall cap.
+                              </div>
+
+                              <div className="space-y-2">
+                                <h3 className="text-sm font-semibold text-slate-900">
+                                  Step 2 · Choose monthly amount
+                                </h3>
+                                {remainingAllowance < activeInvite.minMonthly ? (
+                                  <p className="text-xs text-slate-500">
+                                    You&apos;re already contributing £
+                                    {totalMonthly.toFixed(0)} per month across live
+                                    SAYE plans, which is the maximum allowed (£
+                                    {CAP}). To join this invite you&apos;d need to
+                                    reduce another contribution.
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-slate-500">
+                                    Choose any whole pound amount between £
+                                    {activeInvite.minMonthly} and £
+                                    {Math.min(
+                                      activeInvite.maxMonthly,
+                                      remainingAllowance
+                                    )}
+                                    . You currently contribute £
+                                    {totalMonthly.toFixed(0)} per month across live
+                                    plans (overall cap £{CAP}).
+                                  </p>
+                                )}
+                                <div className="flex flex-wrap items-end gap-4">
+                                  <div className="space-y-1">
+                                    <label className="text-xs font-medium text-slate-600">
+                                      Monthly savings (£)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min={activeInvite.minMonthly}
+                                      max={Math.min(
+                                        activeInvite.maxMonthly,
+                                        remainingAllowance ||
+                                          activeInvite.maxMonthly
+                                      )}
+                                      step={1}
+                                      className="w-40 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                                      value={enrolment.amount}
+                                      onChange={(e) => {
+                                        let v = Number(e.target.value) || 0;
+                                        const maxAllowed = Math.min(
+                                          activeInvite.maxMonthly,
+                                          remainingAllowance
+                                        );
+                                        v = Math.min(v, maxAllowed);
+                                        setEnrolment((prev) =>
+                                          prev ? { ...prev, amount: v } : prev
+                                        );
+                                      }}
+                                    />
+                                    <div className="text-[11px] text-slate-500">
+                                      Remaining headroom:{" "}
+                                      <span className="font-medium">
+                                        {formatMoney(
+                                          remainingAllowance,
+                                          selectedParticipant.currency
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex-1 space-y-1 text-xs">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-slate-600">
+                                        Total savings over{" "}
+                                        {activeInvite.termMonths / 12} years
+                                      </span>
+                                      <span className="font-semibold text-slate-900">
+                                        {formatMoney(
+                                          enrolment.amount *
+                                            activeInvite.termMonths,
+                                          selectedParticipant.currency
+                                        )}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-slate-600">
+                                        Indicative options at maturity
+                                      </span>
+                                      <span className="font-semibold text-slate-900">
+                                        {Math.round(
+                                          (enrolment.amount *
+                                            activeInvite.termMonths) /
+                                            activeInvite.optionPrice
+                                        ).toLocaleString()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="border-t border-slate-100 pt-4 space-y-3">
+                                <h3 className="text-sm font-semibold text-slate-900">
+                                  Step 3 · Confirm & apply
+                                </h3>
+                                <p className="text-xs text-slate-500">
+                                  Tick both boxes to confirm you&apos;ve read the
+                                  documents and understand how deductions will
+                                  work.
+                                </p>
+                                <div className="space-y-2 text-xs text-slate-700">
+                                  <label className="flex items-start gap-2">
+                                    <input
+                                      type="checkbox"
+                                      className="mt-0.5"
+                                      checked={enrolment.read}
+                                      onChange={(e) =>
+                                        setEnrolment((prev) =>
+                                          prev
+                                            ? {
+                                                ...prev,
+                                                read: e.target.checked,
+                                              }
+                                            : prev
+                                        )
+                                      }
+                                    />
+                                    <span>
+                                      I confirm I&apos;ve read the{" "}
+                                      <a
+                                        href="#"
+                                        className="text-indigo-600 hover:underline"
+                                      >
+                                        SAYE plan rules
+                                      </a>{" "}
+                                      and{" "}
+                                      <a
+                                        href="#"
+                                        className="text-indigo-600 hover:underline"
+                                      >
+                                        Key features document
+                                      </a>
+                                      .
+                                    </span>
+                                  </label>
+                                  <label className="flex items-start gap-2">
+                                    <input
+                                      type="checkbox"
+                                      className="mt-0.5"
+                                      checked={enrolment.accepted}
+                                      onChange={(e) =>
+                                        setEnrolment((prev) =>
+                                          prev
+                                            ? {
+                                                ...prev,
+                                                accepted: e.target.checked,
+                                              }
+                                            : prev
+                                        )
+                                      }
+                                    />
+                                    <span>
+                                      I understand that deductions will be taken
+                                      from my net pay each month and that I can
+                                      pause or stop in line with the plan rules.
+                                    </span>
+                                  </label>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-3 pt-1">
+                                  <Button
+                                    size="sm"
+                                    className="text-xs"
+                                    disabled={!canConfirmEnrolment}
+                                    onClick={handleConfirmEnrolment}
+                                  >
+                                    {enrolment.hasApplied
+                                      ? "Election captured (demo only)"
+                                      : "Submit my election (demo)"}
+                                  </Button>
+                                  <div className="text-[11px] text-slate-500">
+                                    This is a static demo – no real elections are
+                                    being submitted.
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2 text-xs">
+                            <h3 className="text-sm font-semibold text-slate-900">
+                              What happens next?
+                            </h3>
+                            <p className="text-slate-600">
+                              In a production build, once you confirm your
+                              election we would:
+                            </p>
+                            <ol className="list-decimal pl-4 space-y-1 text-slate-600">
+                              <li>
+                                Store your election in Optio&apos;s database and
+                                surface it to HR/payroll.
+                              </li>
+                              <li>
+                                Include your chosen amount in the payroll
+                                deduction file.
+                              </li>
+                              <li>
+                                Sync your live savings with the savings carrier
+                                and portal views.
+                              </li>
+                            </ol>
+                            <div className="mt-2 flex gap-4 text-[11px] text-slate-500">
+                              <div>
+                                <div className="font-semibold text-slate-700">
+                                  Who to contact
+                                </div>
+                                <p>
+                                  In a real rollout, contact details for HR or
+                                  the plan administrator would appear here.
+                                </p>
+                              </div>
+                              <div>
+                                <div className="font-semibold text-slate-700">
+                                  Documents
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <a href="#" className="hover:underline">
+                                    Plan Rules
+                                  </a>
+                                  <a href="#" className="hover:underline">
+                                    FAQ
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="mt-3 flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2 text-slate-500">
+                                <Info className="h-4 w-4" />
+                                <span>
+                                  Missed payments extend the maturity by one
+                                  month each. 13 missed = plan lapses.
+                                </span>
+                              </div>
+                              <div className="font-medium">
+                                <span className="text-slate-500">
+                                  Current share price (demo):{" "}
+                                </span>
+                                <span className="text-slate-900">
+                                  {formatMoney(
+                                    enriched[0]?.currentSharePrice ?? 3.8,
+                                    selectedParticipant.currency
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {showModal && modalPlan && modalAction && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h2 className="text-sm font-semibold text-slate-900">
+                            {modalAction === "pause"
+                              ? "Pause contributions"
+                              : "Cancel & refund"}
+                          </h2>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {modalAction === "pause"
+                              ? "For demo purposes, pick how long you'd like to pause. In a real build this would update the carrier file."
+                              : "For demo purposes, choose to cancel and refund your savings. In a real build this would be routed via HR / the savings carrier."}
+                          </p>
+                        </div>
+                        <button
+                          className="text-slate-400 hover:text-slate-600"
+                          onClick={closeModal}
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <div className="mt-3 space-y-2 text-xs text-slate-700">
+                        {modalAction === "pause" ? (
+                          <>
+                            <p>
+                              <span className="font-medium">
+                                {modalPlan.grantName}
+                              </span>{" "}
+                              – monthly savings of{" "}
+                              <span className="font-medium">
+                                {formatMoney(
+                                  modalPlan.monthlyContribution,
+                                  selectedParticipant.currency
+                                )}
+                              </span>
+                              .
+                            </p>
+                            <p>
+                              Choose how many months you&apos;d like to pause
+                              your savings for:
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {[1, 3, 6, 12].map((m) => (
+                                <button
+                                  key={m}
+                                  onClick={() =>
+                                    setModalChoice(`${m} months`)
+                                  }
+                                  className={`rounded-full px-3 py-1 text-xs ring-1 ring-inset ${
+                                    modalChoice === `${m} months`
+                                      ? "bg-slate-900 text-white ring-slate-900"
+                                      : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
+                                  }`}
+                                >
+                                  {m} month{m > 1 ? "s" : ""}
+                                </button>
+                              ))}
+                            </div>
+                            <p className="text-[11px] text-slate-500">
+                              In a real SAYE, pausing would extend your maturity
+                              date. Too many missed payments may cause the plan
+                              to lapse.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p>
+                              You&apos;re asking to{" "}
+                              <span className="font-medium">
+                                cancel & refund
+                              </span>{" "}
+                              your{" "}
+                              <span className="font-medium">
+                                {modalPlan.grantName}
+                              </span>{" "}
+                              savings.
+                            </p>
+                            <p>
+                              In a live flow, we&apos;d confirm your identity,
+                              show you an estimate of your refund and highlight
+                              any tax impact before sending this to HR /
+                              payroll.
+                            </p>
+                            <p className="text-[11px] text-slate-500">
+                              For this demo, we&apos;ll just show a confirmation
+                              message.
+                            </p>
+                            <div className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-800 ring-1 ring-inset ring-amber-200">
+                              Cancelling will usually mean you lose the right to
+                              buy shares at the option price – you&apos;ll just
+                              receive your savings back (subject to the plan
+                              rules).
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="mt-4 flex justify-end gap-2 text-xs">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={closeModal}
+                        >
+                          Close
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={!modalChoice && modalAction === "pause"}
+                          onClick={handleConfirmModal}
+                        >
+                          Confirm (demo)
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
-
-                {openInvites.length > 0 && activeInvite && (
-                  <Card className="rounded-2xl border-none shadow-sm">
-                    <CardContent className="p-4 flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">
-                          SAYE invite open
-                        </p>
-                        <p className="text-sm font-medium text-slate-900">
-                          {activeInvite.grantName}
-                        </p>
-                        <p className="text-[11px] text-slate-500 mt-1">
-                          Invite window{" "}
-                          {new Date(activeInvite.inviteOpen).toLocaleString()} –{" "}
-                          {new Date(activeInvite.inviteClose).toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 text-xs">
-                        <div className="text-slate-600">
-                          Min £{activeInvite.minMonthly.toFixed(0)} / max £
-                          {activeInvite.maxMonthly.toFixed(0)} per month
-                        </div>
-                        <Button className="h-8 px-3 text-xs" onClick={toggleInvitePanel}>
-                          {showInvitePanel ? "Hide enrolment" : "View enrolment"}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {showInvitePanel && activeInvite && enrolment && (
-                  <Card className="rounded-2xl border-none shadow-sm">
-                    <CardContent className="p-6 space-y-6">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                            Enrolment • {activeInvite.grantName}
-                          </p>
-                          <h2 className="text-base font-semibold text-slate-900">Step 1 · Introduction</h2>
-                        </div>
-                        {hasApplied && (
-                          <span className="text-[11px] px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
-                            You have applied for £{enrolment.amount.toFixed(2)} per month
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="rounded-xl overflow-hidden border border-slate-100 h-56 bg-slate-100">
-                        <img
-                          src="https://images.pexels.com/photos/912050/pexels-photo-912050.jpeg?auto=compress&cs=tinysrgb&w=1200"
-                          alt="Airplane flying above the clouds"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-
-                      <p className="text-sm text-slate-700">
-                        You&apos;ve been invited to join your company&apos;s Save As You Earn (SAYE) plan. Save a fixed
-                        amount from your net pay each month and, at maturity, you can use your savings to buy shares
-                        at the fixed option price – or simply take your cash back.
-                      </p>
-
-                                              <h3 className="text-sm font-semibold text-slate-900">
-                          Step 2 · Choose monthly amount
-                        </h3>
-                        {remainingAllowance < activeInvite.minMonthly ? (
-                          <p className="text-xs text-slate-500">
-                            You&apos;re already contributing £{totalMonthly.toFixed(0)} per month across live SAYE
-                            plans, which is the maximum allowed (£{CAP}). To join this invite you&apos;d need to reduce
-                            another contribution.
-                          </p>
-                        ) : (
-                          <p className="text-xs text-slate-500">
-                            Choose any whole pound amount between £{activeInvite.minMonthly} and £
-                            {Math.min(activeInvite.maxMonthly, remainingAllowance)}. You currently contribute £
-                            {totalMonthly.toFixed(0)} per month across live plans (overall cap £{CAP}).
-                          </p>
-                        )}
-                        <div className="flex flex-wrap items-end gap-4">
-                          <div className="space-y-1">
-                                                        <label className="text-xs font-medium text-slate-600">
-                              Monthly savings (£)
-                            </label>
-                            <input
-                              type="number"
-                              min={activeInvite.minMonthly}
-                              max={Math.min(
-                                activeInvite.maxMonthly,
-                                remainingAllowance || activeInvite.maxMonthly
-                              )}
-                              step={1}
-                              className="w-40 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                              value={enrolment.amount}
-                              onChange={(e) => {
-                                let v = Number(e.target.value) || 0;
-                                const maxAllowed = Math.min(
-                                  activeInvite.maxMonthly,
-                                  remainingAllowance
-                                );
-                                v = Math.min(v, maxAllowed);
-                                setEnrolment((prev) =>
-                                  prev ? { ...prev, amount: v } : prev
-                                );
-                              }}
-                            />
-
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            <div>
-                              Option price: <span className="font-medium">{formatMoney(activeInvite.optionPrice)}</span>
-                            </div>
-                            <div>
-                              Indicative options if you complete the plan:&nbsp;
-                              <span className="font-medium">
-                                {Math.round(
-                                  (enrolment.amount * activeInvite.termMonths) / activeInvite.optionPrice
-                                ).toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="border-t border-slate-100 pt-4 space-y-3">
-                        <h3 className="text-sm font-semibold text-slate-900">Step 3 · Confirm & apply</h3>
-                        <p className="text-xs text-slate-500">
-                          Tick both boxes to confirm you&apos;ve read the documents and understand how deductions will
-                          work.
-                        </p>
-                        <div className="space-y-2 text-xs text-slate-700">
-                          <label className="flex items-start gap-2">
-                            <input
-                              type="checkbox"
-                              className="mt-0.5"
-                              checked={enrolment.read}
-                              onChange={(e) =>
-                                setEnrolment((prev) => (prev ? { ...prev, read: e.target.checked } : prev))
-                              }
-                            />
-                            <span>
-                              I confirm I&apos;ve read the{" "}
-                              <a href="#" className="text-indigo-600 hover:underline">
-                                SAYE plan rules
-                              </a>{" "}
-                              and the{" "}
-                              <a href="#" className="text-indigo-600 hover:underline">
-                                Key Information Document
-                              </a>
-                              .
-                            </span>
-                          </label>
-                          <label className="flex items-start gap-2">
-                            <input
-                              type="checkbox"
-                              className="mt-0.5"
-                              checked={enrolment.accepted}
-                              onChange={(e) =>
-                                setEnrolment((prev) => (prev ? { ...prev, accepted: e.target.checked } : prev))
-                              }
-                            />
-                            <span>
-                              I understand my chosen amount will be deducted from my net pay each month for the full
-                              term of the plan unless I change or cancel my participation in line with the plan rules.
-                            </span>
-                          </label>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-2">
-                          <div className="text-[11px] text-slate-500">
-                            You can amend your application any time while the invite window is open.
-                          </div>
-                          <Button
-                            className="h-8 px-4 text-xs"
-                            disabled={!canConfirmEnrolment}
-                            onClick={handleConfirmEnrolment}
-                          >
-                            {hasApplied ? "Update application" : "Confirm enrolment"}
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                <Card className="rounded-2xl border-none shadow-sm">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <h1 className="text-xl font-semibold tracking-tight">Save As You Earn (SAYE)</h1>
-                      <div className="flex gap-4 text-xs text-slate-500">
-                        <a href="#" className="hover:underline">
-                          Plan Rules
-                        </a>
-                        <a href="#" className="hover:underline">
-                          FAQ
-                        </a>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 text-slate-500">
-                        <Info className="h-4 w-4" />
-                        <span>Missed payments extend the maturity by one month each. 13 missed = plan lapses.</span>
-                      </div>
-                      <div className="font-medium">
-                        <span
-                          className={`inline-flex items-center rounded-full ring-1 px-2.5 py-1 ${capClasses}`}
-                        >
-                          Total monthly: £{totalMonthly} / £500
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-2xl border-none shadow-sm">
-                  <CardContent className="p-0 overflow-hidden">
-                    <table className="min-w-full">
-                      <thead className="bg-white">
-                        <tr>
-                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
-                            Plan
-                          </th>
-                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
-                            Start date
-                          </th>
-                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
-                            Maturity
-                          </th>
-                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
-                            Opt px
-                          </th>
-                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
-                            Optns
-                          </th>
-                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
-                            Missed
-                          </th>
-                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
-  <div className="flex items-center gap-1 relative group">
-    Estimated gain
-    <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold cursor-default">
-      i
-    </span>
-    <div
-      className="
-        absolute left-1/2 -translate-x-1/2 top-full mt-1
-        hidden group-hover:block
-        whitespace-nowrap
-        bg-slate-900 text-white text-xs px-2 py-1 rounded-md shadow-lg
-        z-50
-      "
-    >
-      (Current price – option price) × options granted. 
-    </div>
-  </div>
-</th>
-
-                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
-                            Saved
-                          </th>
-                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
-                            £/mo
-                          </th>
-                          <th className="text-right text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 bg-slate-50/50">
-                          {visiblePlans.map((p, idx) => {
-                          const isOpen = !!openRows[idx];
-                          const { history, upcoming } = buildSchedules(p);
-                          return (
-                            <React.Fragment key={idx}>
-                              <tr className={`hover:bg-white/70 ${isOpen ? "bg-white/60" : ""}`}>
-                                <td className="py-2 px-3 text-sm font-medium text-slate-800">
-                                  <button
-                                    className="flex items-center gap-1 underline-offset-2 hover:underline cursor-pointer text-left"
-                                    onClick={() => setOpenRows((r) => ({ ...r, [idx]: !r[idx] }))}
-                                    aria-expanded={isOpen}
-                                    title="View schedule"
-                                  >
-                                    <ChevronDown
-                                      className={`h-4 w-4 transition-transform ${
-                                        isOpen ? "rotate-180 text-emerald-600" : "text-slate-400"
-                                      }`}
-                                    />
-                                    {p.grantName}
-                                  </button>
-                                </td>
-                                <td className="py-2 px-3 text-sm text-slate-700">
-                                  {new Date(p.contractStart).toLocaleDateString()}
-                                </td>
-                                <td className="py-2 px-3 text-sm text-slate-700">
-                                  {p.maturityDate.toLocaleDateString()}
-                                </td>
-                                <td className="py-2 px-3 text-sm text-slate-700">{formatMoney(p.optionPrice)}</td>
-                                <td className="py-2 px-3 text-sm text-slate-700">
-                                  {Math.round(p.optionsGranted).toLocaleString()}
-                                </td>
-                                <td className="py-2 px-3 text-sm text-slate-700">{p.missedPayments}</td>
-                                <td
-                                  className={`py-2 px-3 text-sm font-medium ${
-                                    p.estimatedGain > 0 ? "text-emerald-700" : "text-slate-400"
-                                  }`}
-                                >
-                                  {formatMoney(p.estimatedGain)}
-                                </td>
-                                <td className="py-2 px-3 text-sm text-slate-700">{formatMoney(p.savingsAmount)}</td>
-                                <td className="py-2 px-3 text-sm text-slate-700">
-                                  {formatMoney(p.monthlyContribution)}
-                                </td>
-                                <td className="py-2 px-3 text-sm whitespace-nowrap text-right">
-                                  <div className="inline-flex items-center gap-2">
-                                    {p.paused ? (
-                                      <Button
-                                        variant="outline"
-                                        className="h-8 px-2 text-xs"
-                                        onClick={() => openUnpause(idx)}
-                                      >
-                                        Unpause
-                                      </Button>
-                                    ) : (
-                                      <Button
-                                        variant="outline"
-                                        className="h-8 px-2 text-xs"
-                                        onClick={() => openPause(idx)}
-                                      >
-                                        Pause
-                                      </Button>
-                                    )}
-                                    <Button
-                                      variant="secondary"
-                                      className="h-8 px-2 text-xs"
-                                      onClick={() => openCancel(idx)}
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                </td>
-                              </tr>
-                              {isOpen && (
-                                <tr className="bg-white">
-                                  <td colSpan={10} className="px-3 py-4">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      <div>
-                                        <div className="text-xs font-semibold text-slate-700 mb-2">
-                                          History of contributions
-                                        </div>
-                                        <div className="max-h-64 overflow-auto rounded-md ring-1 ring-slate-100">
-                                          <div className="sticky top-0 bg-slate-50/80 backdrop-blur px-2 py-1 text-[11px] text-slate-500 font-medium [display:grid] [grid-template-columns:1fr_auto_auto] items-center">
-                                            <span>Month</span>
-                                            <span>Date</span>
-                                            <span className="text-right">Amount</span>
-                                          </div>
-                                          {history.length === 0 && (
-                                            <div className="px-2 py-2 text-sm text-slate-500">
-                                              No contributions yet.
-                                            </div>
-                                          )}
-                                          {history.map((row, i) => (
-                                            <div
-                                              key={i}
-                                              className={`px-2 py-1.5 [display:grid] [grid-template-columns:1fr_auto_auto] items-center gap-2 ${
-                                                row.status === "missed" ? "bg-amber-50" : "hover:bg-slate-50"
-                                              }`}
-                                            >
-                                              <span className="text-sm text-slate-700">{row.label}</span>
-                                              <span className="text-xs text-slate-500">{row.date}</span>
-                                              <span
-                                                className={`text-sm font-medium tabular-nums text-right ${
-                                                  row.status === "missed" ? "text-amber-700" : "text-slate-900"
-                                                }`}
-                                              >
-                                                {row.status === "missed" ? "Missed" : formatMoney(row.amount)}
-                                              </span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                      <div>
-                                        <div className="text-xs font-semibold text-slate-700 mb-2">
-                                          Upcoming payments
-                                        </div>
-                                        <div className="max-h-64 overflow-auto rounded-md ring-1 ring-slate-100">
-                                          <div className="sticky top-0 bg-slate-50/80 backdrop-blur px-2 py-1 text-[11px] text-slate-500 font-medium [display:grid] [grid-template-columns:1fr_auto_auto] items-center">
-                                            <span>Month</span>
-                                            <span>Date</span>
-                                            <span className="text-right">Amount</span>
-                                          </div>
-                                          {upcoming.map((row, i) => (
-                                            <div
-                                              key={i}
-                                              className="px-2 py-1.5 hover:bg-slate-50 [display:grid] [grid-template-columns:1fr_auto_auto] items-center gap-2"
-                                            >
-                                              <span className="text-sm text-slate-700">{row.label}</span>
-                                              <span className="text-xs text-slate-500 flex items-center justify-start gap-2">
-                                                {row.isLast && (
-                                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 ring-1 ring-slate-200 whitespace-nowrap">
-                                                    Last payment
-                                                  </span>
-                                                )}
-                                                {row.date}
-                                              </span>
-                                              <span className="text-sm font-medium tabular-nums text-right inline-flex items-center justify-end gap-2">
-                                                {formatMoney(row.amount)}
-                                              </span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </CardContent>
-                </Card>
-                           </div>
+              </>
             )}
 
             {view === "config" && (
@@ -1124,1015 +1961,26 @@ const [participants, setParticipants] = useState<Participant[]>([
                 planConfigs={planConfigs}
                 setPlanConfigs={setPlanConfigs}
                 participants={participants}
-                setParticipants={setParticipants}
+                setParticipants={() => {}}
                 tab={configTab}
                 setTab={setConfigTab}
                 onSelectParticipant={(p) => {
-                  setConfigTab("participants");
                   setSelectedParticipant(p);
-                  setView("participant");
+                  setView("dashboard");
                 }}
               />
             )}
 
             {view === "reports" && (
-              <SAYEReportsView plans={enriched} planConfigs={planConfigs} />
+              <SAYEReportsView plans={plans} planConfigs={planConfigs} />
             )}
 
             {view === "imports" && (
               <SAYEImportsView planConfigs={planConfigs} />
             )}
           </main>
-
         </div>
       </div>
-
-      <Modal
-        open={modal.type === "pause"}
-        title="Pause your SAYE contributions"
-        tone="neutral"
-        onClose={closeModal}
-        onConfirm={confirmModal}
-        confirmLabel="Confirm pause"
-      >
-        <ul className="list-disc pl-5 space-y-2">
-          <li>Your monthly contributions will stop from the next eligible payroll cut-off.</li>
-          <li>
-            You will need to <strong>manually unpause</strong> when you want contributions to resume.
-          </li>
-          <li>
-            Paused months are counted as missed payments and each missed payment moves your maturity back by one
-            month.
-          </li>
-        </ul>
-      </Modal>
-
-      <Modal
-        open={modal.type === "unpause"}
-        title="Unpause your SAYE contributions"
-        tone="neutral"
-        onClose={closeModal}
-        onConfirm={confirmModal}
-        confirmLabel="Confirm unpause"
-      >
-        <ul className="list-disc pl-5 space-y-2">
-          <li>Monthly contributions will resume from the next eligible payroll cut-off.</li>
-          <li>Missed months during the pause remain missed and still delay your maturity date.</li>
-        </ul>
-      </Modal>
-
-      <Modal
-        open={modal.type === "cancel"}
-        title="Cancel plan & refund savings"
-        tone="warning"
-        onClose={closeModal}
-        onConfirm={confirmModal}
-        confirmLabel="I understand — cancel plan"
-      >
-        <ul className="list-disc pl-5 space-y-2">
-          <li>
-            Once cancelled, you <strong>lose the right to your SAYE options</strong>. This cannot be undone.
-          </li>
-          <li>Your saved contributions will be refunded in line with plan rules (usually the next payroll cycle).</li>
-          <li>Any future contributions will stop immediately.</li>
-        </ul>
-      </Modal>
-    </div>
-  );
-}
-type ReportKey = "summary" | "missed" | "maturity" | "cap";
-
-function SAYEReportsView({
-  plans,
-  planConfigs,
-}: {
-  plans: any[];
-  planConfigs: PlanConfig[];
-}) {
-  const [activeReport, setActiveReport] = useState<ReportKey>("summary");
-
-  const totalMonthly = plans.reduce(
-    (sum: number, p: any) => sum + (p.monthlyContribution || 0),
-    0
-  );
-  const CAP = 500;
-
-  return (
-    <div className="space-y-4">
-      <Card className="rounded-2xl border-none shadow-sm">
-        <CardContent className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight">
-                SAYE reports
-              </h1>
-              <p className="text-xs text-slate-500 mt-1">
-                Run quick, pre-configured reports over your SAYE contracts and
-                offerings.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={activeReport === "summary" ? "default" : "outline"}
-              className="h-8 px-3 text-xs"
-              onClick={() => setActiveReport("summary")}
-            >
-              Active contracts
-            </Button>
-            <Button
-              variant={activeReport === "missed" ? "default" : "outline"}
-              className="h-8 px-3 text-xs"
-              onClick={() => setActiveReport("missed")}
-            >
-              Missed payments
-            </Button>
-            <Button
-              variant={activeReport === "maturity" ? "default" : "outline"}
-              className="h-8 px-3 text-xs"
-              onClick={() => setActiveReport("maturity")}
-            >
-              Maturity calendar
-            </Button>
-            <Button
-              variant={activeReport === "cap" ? "default" : "outline"}
-              className="h-8 px-3 text-xs"
-              onClick={() => setActiveReport("cap")}
-            >
-              Contribution cap usage
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {activeReport === "summary" && (
-        <Card className="rounded-2xl border-none shadow-sm">
-          <CardContent className="p-6">
-            <h2 className="text-sm font-semibold mb-3">
-              Active contracts summary
-            </h2>
-            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
-              <table className="min-w-full text-xs">
-                <thead className="bg-slate-50/80">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Plan
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Start date
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Maturity
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      £/mo
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Saved
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Options
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Est. gain
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {plans.map((p: any, i: number) => (
-                    <tr key={i}>
-                      <td className="px-3 py-2 text-xs font-medium text-slate-800">
-                        {p.grantName}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-slate-700">
-                        {new Date(p.contractStart).toLocaleDateString()}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-slate-700">
-                        {p.maturityDate.toLocaleDateString()}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-slate-700">
-                        {formatMoney(p.monthlyContribution)}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-slate-700">
-                        {formatMoney(p.savingsAmount)}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-slate-700">
-                        {Math.round(p.optionsGranted).toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 text-xs font-medium text-emerald-700">
-                        {formatMoney(p.estimatedGain)}
-                      </td>
-                    </tr>
-                  ))}
-                  {plans.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={7}
-                        className="px-3 py-4 text-xs text-slate-500 text-center"
-                      >
-                        No live SAYE contracts.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {activeReport === "missed" && (
-        <Card className="rounded-2xl border-none shadow-sm">
-          <CardContent className="p-6">
-            <h2 className="text-sm font-semibold mb-3">
-              Missed payments and maturity impact
-            </h2>
-            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
-              <table className="min-w-full text-xs">
-                <thead className="bg-slate-50/80">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Plan
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Missed payments
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Current maturity
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Note
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {plans
-                    .filter((p: any) => (p.missedPayments || 0) > 0)
-                    .map((p: any, i: number) => (
-                      <tr key={i}>
-                        <td className="px-3 py-2 text-xs font-medium text-slate-800">
-                          {p.grantName}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-slate-700">
-                          {p.missedPayments}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-slate-700">
-                          {p.maturityDate.toLocaleDateString()}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-slate-700">
-                          Each missed payment pushes maturity back by one month.
-                        </td>
-                      </tr>
-                    ))}
-                  {plans.filter((p: any) => (p.missedPayments || 0) > 0).length ===
-                    0 && (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="px-3 py-4 text-xs text-slate-500 text-center"
-                      >
-                        No missed payments across active contracts.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {activeReport === "maturity" && (
-        <Card className="rounded-2xl border-none shadow-sm">
-          <CardContent className="p-6">
-            <h2 className="text-sm font-semibold mb-3">
-              Maturity calendar (live plans)
-            </h2>
-            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
-              <table className="min-w-full text-xs">
-                <thead className="bg-slate-50/80">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Plan
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Maturity date
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Term
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      £/mo
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Saved (to date)
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {plans
-                    .slice()
-                    .sort(
-                      (a: any, b: any) =>
-                        a.maturityDate.getTime() - b.maturityDate.getTime()
-                    )
-                    .map((p: any, i: number) => (
-                      <tr key={i}>
-                        <td className="px-3 py-2 text-xs font-medium text-slate-800">
-                          {p.grantName}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-slate-700">
-                          {p.maturityDate.toLocaleDateString()}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-slate-700">
-                          {p.termYears} years
-                        </td>
-                        <td className="px-3 py-2 text-xs text-slate-700">
-                          {formatMoney(p.monthlyContribution)}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-slate-700">
-                          {formatMoney(p.savingsAmount)}
-                        </td>
-                      </tr>
-                    ))}
-                  {plans.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="px-3 py-4 text-xs text-slate-500 text-center"
-                      >
-                        No live SAYE plans.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {activeReport === "cap" && (
-        <Card className="rounded-2xl border-none shadow-sm">
-          <CardContent className="p-6 space-y-4">
-            <h2 className="text-sm font-semibold">
-              Contribution cap usage (per employee)
-            </h2>
-            <p className="text-xs text-slate-500">
-              This demo assumes a £{CAP.toFixed(0)} per-month SAYE cap per
-              employee across all contracts.
-            </p>
-            <div className="flex items-center justify-between text-sm">
-              <div>
-                <div className="text-xs text-slate-500 mb-1">
-                  Total current monthly across live plans
-                </div>
-                <div className="text-base font-semibold">
-                  {formatMoney(totalMonthly)}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 mb-1">
-                  Cap utilisation
-                </div>
-                <div className="text-base font-semibold">
-                  {Math.round((totalMonthly / CAP) * 100)}%
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-function SAYEImportsView({ planConfigs }: { planConfigs: PlanConfig[] }) {
-  const [selectedPlanIndex, setSelectedPlanIndex] = useState<number>(0);
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
-    setStatus(
-      "File loaded into the demo UI. In a real system this would be validated and queued for import."
-    );
-  };
-
-  const selectedPlan = planConfigs[selectedPlanIndex];
-
-  return (
-    <div className="space-y-4">
-      <Card className="rounded-2xl border-none shadow-sm">
-        <CardContent className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight">
-                SAYE imports
-              </h1>
-              <p className="text-xs text-slate-500 mt-1">
-                Load contribution files against a specific SAYE plan to update
-                savings positions.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">
-                Target SAYE plan
-              </label>
-              <select
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                value={selectedPlanIndex}
-                onChange={(e) =>
-                  setSelectedPlanIndex(Number(e.target.value) || 0)
-                }
-              >
-                {planConfigs.map((p, i) => (
-                  <option key={i} value={i}>
-                    {p.grantName} ({p.termYears}y, opt px {formatMoney(
-                      p.optionPrice
-                    )}
-                    )
-                  </option>
-                ))}
-              </select>
-              {selectedPlan && (
-                <p className="text-[11px] text-slate-500">
-                  Invite window:{" "}
-                  {new Date(selectedPlan.inviteOpen).toLocaleString()} –{" "}
-                  {new Date(selectedPlan.inviteClose).toLocaleString()}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">
-                Contribution file (.csv)
-              </label>
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleFileChange}
-                className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border file:border-slate-300 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-slate-50"
-              />
-              <p className="text-[11px] text-slate-500">
-                Expected columns (demo): employee ID, name, payroll month,
-                amount, currency.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            <div className="text-[11px] text-slate-500">
-              This is a front-end demo only – no data is stored or sent
-              anywhere.
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="h-8 px-3 text-xs"
-                disabled={!fileName}
-                onClick={() =>
-                  setStatus(
-                    "Validation complete (demo). No issues detected in the sample file."
-                  )
-                }
-              >
-                Validate file
-              </Button>
-              <Button
-                className="h-8 px-3 text-xs"
-                disabled={!fileName}
-                onClick={() =>
-                  setStatus(
-                    "Import simulated. In a real system this would push contributions into the plan ledger."
-                  )
-                }
-              >
-                Import contributions
-              </Button>
-            </div>
-          </div>
-
-          {status && (
-            <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
-              <div className="font-medium mb-0.5">
-                {fileName ? fileName : "No file selected"}
-              </div>
-              <div>{status}</div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-interface ModalProps {
-  open: boolean;
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-  onConfirm: () => void;
-  confirmLabel?: string;
-  tone?: "neutral" | "warning";
-}
-
-function Modal({
-  open,
-  title,
-  children,
-  onClose,
-  onConfirm,
-  confirmLabel = "Confirm",
-  tone = "neutral",
-}: ModalProps) {
-  if (!open) return null;
-  const toneClasses =
-    tone === "warning"
-      ? "ring-1 ring-rose-200 bg-rose-50 text-rose-900"
-      : "ring-1 ring-slate-200 bg-white text-slate-900";
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div
-        role="dialog"
-        aria-modal="true"
-        className={`relative w-full max-w-lg rounded-2xl shadow-lg ${toneClasses}`}
-      >
-        <div className="p-5">
-          <h2 className="text-lg font-semibold mb-2">{title}</h2>
-          <div className="text-sm leading-relaxed">{children}</div>
-          <div className="mt-5 flex justify-end gap-2">
-            <Button variant="outline" className="h-9 px-3 text-sm" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button className="h-9 px-3 text-sm" onClick={onConfirm}>
-              {confirmLabel}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-type SAYEConfigViewProps = {
-  planConfigs: PlanConfig[];
-  setPlanConfigs: React.Dispatch<React.SetStateAction<PlanConfig[]>>;
-  participants: Participant[];
-  setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
-  tab: "plans" | "participants";
-  setTab: React.Dispatch<React.SetStateAction<"plans" | "participants">>;
-  onSelectParticipant: (p: Participant) => void;
-};
-
-function SAYEConfigView({
-  planConfigs,
-  setPlanConfigs,
-  participants,
-  setParticipants,
-  tab,
-  setTab,
-  onSelectParticipant,
-}: SAYEConfigViewProps) {
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [draft, setDraft] = useState<PlanConfig | null>(null);
-
-  const openEdit = (index: number) => {
-    const source = planConfigs[index];
-    if (!source) return;
-    setEditingIndex(index);
-    setDraft({ ...source });
-    setEditorOpen(true);
-  };
-
-  const openNew = () => {
-    const baseYear = new Date().getFullYear() + 1;
-    const yearStr = String(baseYear);
-    const newDraft: PlanConfig = {
-      grantName: `${yearStr} SAYE Plan`,
-      inviteOpen: `${yearStr}-02-01T09:00`,
-      inviteClose: `${yearStr}-02-28T17:00`,
-      grantDate: `${yearStr}-03-01`,
-      contractStart: `${yearStr}-03-01`,
-      optionPrice: 1.0,
-      bonusRate: 0,
-      minMonthly: 10,
-      maxMonthly: 500,
-      termYears: 3,
-      ticker: TICKER,
-      exchange: "LSE",
-      termMonths: 36,
-      monthlyContribution: 0,
-      missedPayments: 0,
-      status: "invite",
-      paused: false,
-    };
-    setEditingIndex(null);
-    setDraft(newDraft);
-    setEditorOpen(true);
-  };
-
-  const closeEditor = () => {
-    setEditorOpen(false);
-    setEditingIndex(null);
-    setDraft(null);
-  };
-
-  const saveDraft = () => {
-    if (!draft) return;
-    if (editingIndex == null) {
-      setPlanConfigs((prev) => [...prev, draft]);
-    } else {
-      setPlanConfigs((prev) => prev.map((p, i) => (i === editingIndex ? draft : p)));
-    }
-    closeEditor();
-  };
-
-  // *** FIXED: use a normal function instead of a generic arrow in TSX ***
-  function updateDraft<K extends keyof PlanConfig>(field: K, value: PlanConfig[K]) {
-    setDraft((prev) => (prev ? { ...prev, [field]: value } : prev));
-  }
-
-  const createContractsForPlan = (index: number) => {
-    setPlanConfigs((prev) =>
-      prev.map((p, i) => {
-        if (i !== index) return p;
-        const midMonthly = (p.minMonthly + p.maxMonthly) / 2;
-        return {
-          ...p,
-          status: "live" as PlanStatus,
-          monthlyContribution: midMonthly,
-        };
-      })
-    );
-  };
-
-    return (
-    <div className="space-y-4">
-      <div className="rounded-full bg-slate-100 p-1 flex max-w-xl mb-4">
-        <button
-          type="button"
-          onClick={() => setTab("plans")}
-          className={`flex-1 text-xs font-medium px-4 py-2 rounded-full ${
-            tab === "plans" ? "bg-white shadow-sm" : "text-slate-500"
-          }`}
-        >
-          Plan overview
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("participants")}
-          className={`flex-1 text-xs font-medium px-4 py-2 rounded-full ${
-            tab === "participants" ? "bg-white shadow-sm" : "text-slate-500"
-          }`}
-        >
-          Participants
-        </button>
-      </div>
-
-      {tab === "plans" && (
-        <Card className="rounded-2xl border-none shadow-sm">
-        <CardContent className="p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight">SAYE plan configuration</h1>
-              <p className="text-xs text-slate-500 mt-1">
-                View all SAYE offerings. Edit a plan or create a new one to push contracts to the participant
-                view.
-              </p>
-            </div>
-          </div>
-
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Existing SAYE plans & offerings
-              </h2>
-              <Button className="h-8 px-3 text-xs" onClick={openNew}>
-                New plan
-              </Button>
-            </div>
-            <p className="text-[11px] text-slate-500">
-              Plans marked <span className="font-semibold">Live</span> appear in the participant view. Draft
-              invitations stay hidden until you create contracts.
-            </p>
-
-            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
-              <table className="min-w-full text-xs">
-                <thead className="bg-slate-50/80">
-                  <tr>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Plan</th>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Status</th>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Invite window</th>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Grant date</th>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Contract start</th>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Opt price</th>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Min £/mo</th>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Max £/mo</th>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Term</th>
-                    <th className="text-right px-3 py-2 font-semibold text-slate-500">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {planConfigs.map((p, i) => (
-                    <tr key={i} className="align-middle">
-                      <td className="px-3 py-2 text-xs font-medium text-slate-800">{p.grantName}</td>
-                      <td className="px-3 py-2">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                            p.status === "live"
-                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                              : "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
-                          }`}
-                        >
-                          {p.status === "live" ? "Live" : "Invite"}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-xs text-slate-700">
-                        {new Date(p.inviteOpen).toLocaleString()} —
-                        <br />
-                        {new Date(p.inviteClose).toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-slate-700">
-                        {new Date(p.grantDate).toLocaleDateString()}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-slate-700">
-                        {new Date(p.contractStart).toLocaleDateString()}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-slate-700">{formatMoney(p.optionPrice)}</td>
-                      <td className="px-3 py-2 text-xs text-slate-700">{formatMoney(p.minMonthly)}</td>
-                      <td className="px-3 py-2 text-xs text-slate-700">{formatMoney(p.maxMonthly)}</td>
-                      <td className="px-3 py-2 text-xs text-slate-700">{p.termYears} years</td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="inline-flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            className="h-7 px-2 text-[11px]"
-                            onClick={() => openEdit(i)}
-                          >
-                            Edit
-                          </Button>
-                          {p.status === "invite" ? (
-                            <Button
-                              className="h-7 px-2 text-[11px]"
-                              onClick={() => createContractsForPlan(i)}
-                            >
-                              Create contracts
-                            </Button>
-                          ) : (
-                            <span className="text-[11px] text-slate-500">Already live</span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </CardContent>
-      </Card>
-      )}
-      {tab === "participants" && (
-        <Card className="rounded-2xl border-none shadow-sm">
-          <CardContent className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-lg font-semibold tracking-tight">Participants</h1>
-                <p className="text-xs text-slate-500 mt-1">
-                  Example employees loaded into this demo. In a real system this would come from your HR or payroll
-                  feed.
-                </p>
-              </div>
-            </div>
-
-            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
-              <table className="min-w-full text-xs">
-                <thead className="bg-slate-50/80">
-                  <tr>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Name</th>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Employee ID</th>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Email</th>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Location</th>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Currency</th>
-                    <th className="text-right px-3 py-2 font-semibold text-slate-500">Contracts</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {participants.map((p) => (
-                    <tr key={p.id}>
-                            <td className="px-3 py-2 text-xs font-medium text-slate-800">
-<button
-  type="button"
-  onClick={() => onSelectParticipant(p)}
-  className="text-indigo-600 hover:underline"
->
-  {p.name}
-</button>
-      </td>
-                      <td className="px-3 py-2 text-xs text-slate-700">{p.employeeId ?? "—"}</td>
-                      <td className="px-3 py-2 text-xs text-slate-700">{p.email ?? "—"}</td>
-                      <td className="px-3 py-2 text-xs text-slate-700">{p.location ?? "—"}</td>
-                      <td className="px-3 py-2 text-xs text-slate-700">{p.currency ?? "—"}</td>
-                      <td className="px-3 py-2 text-xs text-right text-slate-700">
-                        {Array.isArray(p.contracts) ? p.contracts.length : 0}
-                      </td>
-                    </tr>
-                  ))}
-                  {participants.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="px-3 py-4 text-xs text-slate-500 text-center"
-                      >
-                        No participants loaded in this demo.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      
-      <Modal
-        open={editorOpen && !!draft}
-        title={editingIndex == null ? "Create new SAYE plan" : "Edit SAYE plan"}
-        tone="neutral"
-        onClose={closeEditor}
-        onConfirm={saveDraft}
-        confirmLabel={editingIndex == null ? "Save & add plan" : "Save changes"}
-      >
-        {draft && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600">Plan name</label>
-                <input
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={draft.grantName}
-                  onChange={(e) => updateDraft("grantName", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600">Bonus / interest rate (%)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={draft.bonusRate}
-                  onChange={(e) => updateDraft("bonusRate", Number(e.target.value) || 0)}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600">Invite window opens</label>
-                <input
-                  type="datetime-local"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={draft.inviteOpen}
-                  onChange={(e) => updateDraft("inviteOpen", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600">Invite window closes</label>
-                <input
-                  type="datetime-local"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={draft.inviteClose}
-                  onChange={(e) => updateDraft("inviteClose", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600">Grant date</label>
-                <input
-                  type="date"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={draft.grantDate}
-                  onChange={(e) => updateDraft("grantDate", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600">Contract start date</label>
-                <input
-                  type="date"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={draft.contractStart}
-                  onChange={(e) => updateDraft("contractStart", e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600">Option price (£)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={draft.optionPrice}
-                  onChange={(e) => updateDraft("optionPrice", Number(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600">Minimum monthly (£)</label>
-                <input
-                  type="number"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={draft.minMonthly}
-                  onChange={(e) => updateDraft("minMonthly", Number(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600">Maximum monthly (£)</label>
-                <input
-                  type="number"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={draft.maxMonthly}
-                  onChange={(e) => updateDraft("maxMonthly", Number(e.target.value) || 0)}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-medium text-slate-600">Term</label>
-                <div className="flex gap-3 text-xs">
-                  <label className="inline-flex items-center gap-1">
-                    <input
-                      type="radio"
-                      name="termYears"
-                      checked={draft.termYears === 3}
-                      onChange={() => {
-                        updateDraft("termYears", 3);
-                        updateDraft("termMonths", 36);
-                      }}
-                    />
-                    <span>3 years</span>
-                  </label>
-                  <label className="inline-flex items-center gap-1">
-                    <input
-                      type="radio"
-                      name="termYears"
-                      checked={draft.termYears === 5}
-                      onChange={() => {
-                        updateDraft("termYears", 5);
-                        updateDraft("termMonths", 60);
-                      }}
-                    />
-                    <span>5 years</span>
-                  </label>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600">Status</label>
-                <select
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={draft.status}
-                  onChange={(e) => updateDraft("status", e.target.value as PlanStatus)}
-                >
-                  <option value="invite">Invite</option>
-                  <option value="live">Live</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600">Ticker</label>
-                <input
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={draft.ticker}
-                  onChange={(e) => updateDraft("ticker", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600">Exchange</label>
-                <input
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  value={draft.exchange}
-                  onChange={(e) => updateDraft("exchange", e.target.value)}
-                />
-              </div>
-              <div className="flex items-center text-[11px] text-slate-500">
-                <span>
-                  These settings control the live price feed and indicative gain shown in the participant view.
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 }
