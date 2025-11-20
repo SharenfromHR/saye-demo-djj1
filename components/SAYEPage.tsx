@@ -421,18 +421,13 @@ function SAYEConfigView({
                       </div>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    className="h-8 px-3 text-xs"
-                    onClick={() =>
-                      setEditingConfigId(
-                        editingConfigId === cfg.id ? null : cfg.id
-                      )
-                    }
-                  >
-                    <ChevronDown className="mr-1 h-3 w-3" />
-                    Details
-                  </Button>
+<Button
+  variant="outline"
+  className="h-7 px-3 text-xs"
+  onClick={() => alert("Export summary coming soon")}
+>
+  Export summary
+</Button>
                 </div>
 
                 {editingConfigId === cfg.id && (
