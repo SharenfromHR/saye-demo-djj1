@@ -538,7 +538,7 @@ const [participants, setParticipants] = useState<Participant[]>([
     );
   };
 
-  const canConfirmEnrolment =
+    const canConfirmEnrolment =
     !!activeInvite &&
     !!enrolment &&
     enrolment.accepted &&
@@ -553,15 +553,17 @@ const [participants, setParticipants] = useState<Participant[]>([
           {/* Sidebar */}
           <aside className="w-60 shrink-0">
             <nav className="sticky top-6 space-y-1 text-sm">
-              {["Dashboard", "My portfolio", "My orders", "Documents", "Simulations"].map((label) => (
-                <div
-                  key={label}
-                  className="px-3 py-2 rounded-xl text-slate-600 hover:bg-white/60 cursor-default"
-                >
-                  {label}
-                </div>
-              ))}
-
+              {["Dashboard", "My portfolio", "My orders", "Documents", "Simulations"].map(
+                (label) => (
+                  <div
+                    key={label}
+                    className="px-3 py-2 rounded-xl text-slate-600 hover:bg-white/60 cursor-default"
+                  >
+                    {label}
+                  </div>
+                )
+              )}
+              
              <div className="space-y-1">
   <button
     type="button"
