@@ -334,8 +334,6 @@ function SAYEConfigView({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<PlanConfig | null>(null);
 
-  const [editingConfigId, setEditingConfigId] = useState<string | null>(null);
-
   const handleConfigChange = (id: string, updates: Partial<PlanConfig>) => {
     setPlanConfigs((prev) =>
       prev.map((cfg) => (cfg.id === id ? { ...cfg, ...updates } : cfg))
@@ -1194,14 +1192,12 @@ export default function SAYEPage() {
                           </div>
                         </div>
                         <Button
-  variant="outline"
-  className="h-7 px-3 text-xs"
-  onClick={() =>
-    setEditingConfigId(
-      editingConfigId === cfg.id ? null : cfg.id
-    )
-  }
->
+                          variant="outline"
+                          className="h-7 px-3 text-xs"
+                          onClick={() =>
+                            alert("In a real build this would export a CSV summary.")
+                          }
+                        >
                           Export summary
                         </Button>
                       </div>
