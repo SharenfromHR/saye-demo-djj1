@@ -1083,29 +1083,32 @@ const [participants, setParticipants] = useState<Participant[]>([
               </div>
             )}
 
-                        {view === "config" && (
-              {view === "config" && (
-  <SAYEConfigView
-    planConfigs={planConfigs}
-    setPlanConfigs={setPlanConfigs}
-    participants={participants}
-    setParticipants={setParticipants}
-    tab={configTab}
-    setTab={setConfigTab}
-    onSelectParticipant={(p) => {
-      setConfigTab("participants");
-      setSelectedParticipant(p);
-      setView("participant");
-    }}
-  />
-)}
-             {view === "reports" && (
-    <SAYEReportsView plans={enriched} planConfigs={planConfigs} />
-  )}
+            )}
 
-  {view === "imports" && (
-    <SAYEImportsView planConfigs={planConfigs} />
-  )}
+            {view === "config" && (
+              <SAYEConfigView
+                planConfigs={planConfigs}
+                setPlanConfigs={setPlanConfigs}
+                participants={participants}
+                setParticipants={setParticipants}
+                tab={configTab}
+                setTab={setConfigTab}
+                onSelectParticipant={(p) => {
+                  setConfigTab("participants");
+                  setSelectedParticipant(p);
+                  setView("participant");
+                }}
+              />
+            )}
+
+            {view === "reports" && (
+              <SAYEReportsView plans={enriched} planConfigs={planConfigs} />
+            )}
+
+            {view === "imports" && (
+              <SAYEImportsView planConfigs={planConfigs} />
+            )}
+
           </main>
         </div>
       </div>
@@ -1892,13 +1895,13 @@ function SAYEConfigView({
                   {participants.map((p) => (
                     <tr key={p.id}>
                             <td className="px-3 py-2 text-xs font-medium text-slate-800">
-        <button
-          type="button"
-          onClick={() => onOpenParticipant(p)}
-          className="text-indigo-600 hover:underline"
-        >
-          {p.name}
-        </button>
+<button
+  type="button"
+  onClick={() => onSelectParticipant(p)}
+  className="text-indigo-600 hover:underline"
+>
+  {p.name}
+</button>
       </td>
                       <td className="px-3 py-2 text-xs text-slate-700">{p.employeeId ?? "—"}</td>
                       <td className="px-3 py-2 text-xs text-slate-700">{p.email ?? "—"}</td>
