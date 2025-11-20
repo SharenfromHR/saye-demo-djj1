@@ -728,102 +728,327 @@ type SAYEReportsViewProps = {
   planConfigs: PlanConfig[];
 };
 
-function SAYEReportsView({ plans, planConfigs }: SAYEReportsViewProps) {
-  const withConfig = plans.map((p) => {
-    const cfg = planConfigs.find((c) => c.grantName === p.grantName);
-    return {
-      ...p,
-      maxTotalMonthly: cfg?.maxTotalMonthly ?? 0,
-    };
-  });
+function SAYEReportsView({
+  plans,
+  planConfigs,
+}: {
+  plans: any[];
+  planConfigs: PlanConfig[];
+}) {
+  const [activeReport, setActiveReport] = useState<ReportKey>("summary");
 
-  const breaches = withConfig
-    .filter((p) => p.status === "live")
-    .map((p) => ({
-      ...p,
-      overCap: p.monthlyContribution > (p.maxTotalMonthly || 0),
-    }));
+  const totalMonthly = plans.reduce(
+    (sum: number, p: any) => sum + (p.monthlyContribution || 0),
+    0
+  );
+  const CAP = 500;
 
   return (
-    <div className="space-y-4 text-xs">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">
-            Reporting & limits
-          </h2>
-          <p className="text-xs text-slate-500">
-            Simple export-style view to check who&apos;s close to or over
-            limits.
-          </p>
-        </div>
-        <Button variant="outline" className="h-8 px-3 text-xs">
-          Export CSV
-        </Button>
-      </div>
+    <div className="space-y-4">
+      <Card className="rounded-2xl border-none shadow-sm">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight">
+                SAYE reports
+              </h1>
+              <p className="text-xs text-slate-500 mt-1">
+                Run quick, pre-configured reports over your SAYE contracts and
+                offerings.
+              </p>
+            </div>
+          </div>
 
-      <table className="min-w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-xs">
-        <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
-          <tr>
-            <th className="px-3 py-2 text-left">Participant</th>
-            <th className="px-3 py-2 text-left">Grant</th>
-            <th className="px-3 py-2 text-right">Monthly</th>
-            <th className="px-3 py-2 text-right">Max total</th>
-            <th className="px-3 py-2 text-right">Status</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {breaches.map((p) => {
-            const participant = mockParticipants.find(
-              (pt) => pt.id === p.participantId
-            );
-            return (
-              <tr key={p.id} className="hover:bg-slate-50/80">
-                <td className="px-3 py-2">
-                  <div className="font-medium text-slate-900">
-                    {participant?.name ?? p.participantId}
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    {participant?.employeeId}
-                  </div>
-                </td>
-                <td className="px-3 py-2 text-slate-600">{p.grantName}</td>
-                <td className="px-3 py-2 text-right tabular-nums">
-                  {formatMoney(
-                    p.monthlyContribution,
-                    participant?.currency || "GBP"
-                  )}
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums">
-                  {p.maxTotalMonthly
-                    ? formatMoney(
-                        p.maxTotalMonthly,
-                        participant?.currency || "GBP"
-                      )
-                    : "-"}
-                </td>
-                <td className="px-3 py-2 text-right">
-                  <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ring-1 ring-inset ${
-                      p.overCap
-                        ? "bg-rose-50 text-rose-700 ring-rose-200"
-                        : "bg-emerald-50 text-emerald-700 ring-emerald-200"
-                    }`}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={activeReport === "summary" ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setActiveReport("summary")}
+            >
+              Active contracts
+            </Button>
+            <Button
+              variant={activeReport === "missed" ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setActiveReport("missed")}
+            >
+              Missed payments
+            </Button>
+            <Button
+              variant={activeReport === "maturity" ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setActiveReport("maturity")}
+            >
+              Maturity calendar
+            </Button>
+            <Button
+              variant={activeReport === "cap" ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setActiveReport("cap")}
+            >
+              Contribution cap usage
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {activeReport === "summary" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6">
+            <h2 className="text-sm font-semibold mb-3">
+              Active contracts summary
+            </h2>
+            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50/80">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Plan
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Start date
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Maturity
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      £/mo
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Saved
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {plans.map((p: any, i: number) => {
+                    const cfg = planConfigs.find(
+                      (c) => c.grantName === p.grantName
+                    );
+                    const maturity = cfg
+                      ? calculateMaturity(cfg, new Date(cfg.grantDate))
+                      : null;
+                    return (
+                      <tr key={i} className="hover:bg-slate-50/60">
+                        <td className="px-3 py-2 font-medium text-slate-800">
+                          {p.grantName}
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {cfg
+                            ? new Date(cfg.contractStart).toLocaleDateString()
+                            : "-"}
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {maturity
+                            ? maturity.maturityDate.toLocaleDateString()
+                            : "-"}
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {formatMoney(p.monthlyContribution)}
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {formatMoney(p.savedToDate || 0)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-100">
+                            Active
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3 text-[11px] text-slate-500">
+              Total monthly: {formatMoney(totalMonthly)} (vs cap {formatMoney(
+                CAP
+              )}
+              )
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeReport === "missed" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6">
+            <h2 className="text-sm font-semibold mb-3">
+              Participants with missed payments
+            </h2>
+            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50/80">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Participant
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Plan
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Missed payments
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {plans
+                    .filter((p: any) => p.missedPayments && p.missedPayments > 0)
+                    .map((p: any, i: number) => (
+                      <tr key={i} className="hover:bg-slate-50/60">
+                        <td className="px-3 py-2 text-slate-800">
+                          {p.participantName}
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {p.grantName}
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {p.missedPayments}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-[11px] text-slate-500">
+              In a live system you&apos;d drill into missed payments per month,
+              override rules, and generate participant letters.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeReport === "maturity" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6">
+            <h2 className="text-sm font-semibold mb-3">
+              Maturity calendar (by grant)
+            </h2>
+            <div className="space-y-3">
+              {planConfigs.map((cfg, i) => {
+                const maturity = calculateMaturity(
+                  cfg,
+                  new Date(cfg.grantDate)
+                );
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2 text-xs"
                   >
-                    {p.overCap ? "Over cap" : "Within cap"}
-                  </span>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                    <div>
+                      <div className="font-medium text-slate-900">
+                        {cfg.grantName}
+                      </div>
+                      <div className="text-[11px] text-slate-600">
+                        Contract start:{" "}
+                        {new Date(cfg.contractStart).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold text-slate-900">
+                        {maturity.maturityDate.toLocaleDateString()}
+                      </div>
+                      <div className="text-[11px] text-slate-600">
+                        {maturity.termMonths} months ·{" "}
+                        {maturity.remainingMonths} remaining
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeReport === "cap" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6 space-y-4">
+            <h2 className="text-sm font-semibold">
+              Contribution cap usage (per employee)
+            </h2>
+            <p className="text-xs text-slate-500">
+              In the UK, SAYE contributions are typically capped at £500/month
+              per employee across all SAYE contracts. This view gives HR &amp;
+              payroll a quick sense-check of who&apos;s close to or over the
+              limit in the configured demo data.
+            </p>
+            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50/80">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Participant
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Total £/mo
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Cap
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {Array.from(
+                    plans.reduce((map, p: any) => {
+                      const key = p.participantName || p.participantId || "N/A";
+                      const current = map.get(key) || 0;
+                      return map.set(
+                        key,
+                        current + (p.monthlyContribution || 0)
+                      );
+                    }, new Map<string, number>())
+                  ).map(([name, total], i) => {
+                    const ratio = total / CAP;
+                    const status =
+                      ratio > 1
+                        ? "Above cap"
+                        : ratio > 0.8
+                        ? "Near cap"
+                        : "Comfortable";
+                    const badgeClass =
+                      status === "Above cap"
+                        ? "bg-rose-50 text-rose-700 ring-rose-100"
+                        : status === "Near cap"
+                        ? "bg-amber-50 text-amber-700 ring-amber-100"
+                        : "bg-emerald-50 text-emerald-700 ring-emerald-100";
+
+                    return (
+                      <tr key={i} className="hover:bg-slate-50/60">
+                        <td className="px-3 py-2 text-slate-800">{name}</td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {formatMoney(total)}
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {formatMoney(CAP)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={cn(
+                              "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1",
+                              badgeClass
+                            )}
+                          >
+                            {status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
-
-type SAYEImportsViewProps = {
-  planConfigs: PlanConfig[];
-};
 
 function SAYEImportsView({ planConfigs }: SAYEImportsViewProps) {
   return (
