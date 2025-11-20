@@ -1151,7 +1151,6 @@ export default function SAYEPage() {
                                         <Button
                                           className="h-6 px-2 text-[11px]"
                                           variant="outline"
-                                          className="text-[11px]"
                                           onClick={() =>
                                             openModal(plan, "pause")
                                           }
@@ -1161,7 +1160,6 @@ export default function SAYEPage() {
                                         <Button
                                           className="h-6 px-2 text-[11px]"
                                           variant="outline"
-                                          className="text-[11px]"
                                           onClick={() =>
                                             openModal(plan, "cancel")
                                           }
