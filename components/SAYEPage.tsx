@@ -312,6 +312,10 @@ function getStatusBadge(status: PlanStatus): {
   }
 }
 
+type PlanConfigTab = "config" | "timeline" | "limits" | "participants";
+
+type ReportKey = "summary" | "missed" | "maturity" | "cap";
+
 type SAYEConfigViewProps = {
   planConfigs: PlanConfig[];
   setPlanConfigs: React.Dispatch<React.SetStateAction<PlanConfig[]>>;
