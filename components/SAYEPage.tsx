@@ -452,14 +452,20 @@ const [participants, setParticipants] = useState<Participant[]>([
     return { history, upcoming };
   };
 
-  const totalMonthly = visiblePlans.reduce((sum, p) => sum + p.monthlyContribution, 0);
+    const totalMonthly = visiblePlans.reduce(
+    (sum, p) => sum + p.monthlyContribution,
+    0
+  );
   const CAP = 500;
+  const remainingAllowance = Math.max(0, CAP - totalMonthly);
+
   const capClasses =
     totalMonthly > CAP
       ? "bg-rose-50 text-rose-700 ring-rose-200"
       : totalMonthly >= CAP * 0.8
       ? "bg-amber-50 text-amber-700 ring-amber-200"
       : "bg-emerald-50 text-emerald-700 ring-emerald-200";
+
 
   const nowForInvites = new Date();
   const openInvites = planConfigs.filter((p) => {
@@ -530,7 +536,7 @@ const [participants, setParticipants] = useState<Participant[]>([
     });
   };
 
-  const handleConfirmEnrolment = () => {
+    const handleConfirmEnrolment = () => {
     if (!activeInvite || !enrolment) return;
 
     setEnrolment((prev) =>
@@ -538,13 +544,17 @@ const [participants, setParticipants] = useState<Participant[]>([
     );
   };
 
-    const canConfirmEnrolment =
+  const effectiveInviteMax =
+    activeInvite ? Math.min(activeInvite.maxMonthly, remainingAllowance) : 0;
+
+  const canConfirmEnrolment =
     !!activeInvite &&
     !!enrolment &&
     enrolment.accepted &&
     enrolment.read &&
+    remainingAllowance >= activeInvite.minMonthly &&
     enrolment.amount >= activeInvite.minMonthly &&
-    enrolment.amount <= activeInvite.maxMonthly;
+    enrolment.amount <= effectiveInviteMax;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
@@ -744,24 +754,47 @@ const [participants, setParticipants] = useState<Participant[]>([
                         at the fixed option price – or simply take your cash back.
                       </p>
 
-                      <div className="border-t border-slate-100 pt-4 space-y-3">
-                        <h3 className="text-sm font-semibold text-slate-900">Step 2 · Choose monthly amount</h3>
-                        <p className="text-xs text-slate-500">
-                          Choose any whole pound amount between £{activeInvite.minMonthly} and £{activeInvite.maxMonthly}.
-                        </p>
+                                              <h3 className="text-sm font-semibold text-slate-900">
+                          Step 2 · Choose monthly amount
+                        </h3>
+                        {remainingAllowance < activeInvite.minMonthly ? (
+                          <p className="text-xs text-slate-500">
+                            You&apos;re already contributing £{totalMonthly.toFixed(0)} per month across live SAYE
+                            plans, which is the maximum allowed (£{CAP}). To join this invite you&apos;d need to reduce
+                            another contribution.
+                          </p>
+                        ) : (
+                          <p className="text-xs text-slate-500">
+                            Choose any whole pound amount between £{activeInvite.minMonthly} and £
+                            {Math.min(activeInvite.maxMonthly, remainingAllowance)}. You currently contribute £
+                            {totalMonthly.toFixed(0)} per month across live plans (overall cap £{CAP}).
+                          </p>
+                        )}
                         <div className="flex flex-wrap items-end gap-4">
                           <div className="space-y-1">
-                            <label className="text-xs font-medium text-slate-600">Monthly savings (£)</label>
+                                                        <label className="text-xs font-medium text-slate-600">
+                              Monthly savings (£)
+                            </label>
                             <input
                               type="number"
                               min={activeInvite.minMonthly}
-                              max={activeInvite.maxMonthly}
+                              max={Math.min(
+                                activeInvite.maxMonthly,
+                                remainingAllowance || activeInvite.maxMonthly
+                              )}
                               step={1}
                               className="w-40 rounded-lg border border-slate-200 px-3 py-2 text-sm"
                               value={enrolment.amount}
                               onChange={(e) => {
-                                const v = Number(e.target.value) || 0;
-                                setEnrolment((prev) => (prev ? { ...prev, amount: v } : prev));
+                                let v = Number(e.target.value) || 0;
+                                const maxAllowed = Math.min(
+                                  activeInvite.maxMonthly,
+                                  remainingAllowance
+                                );
+                                v = Math.min(v, maxAllowed);
+                                setEnrolment((prev) =>
+                                  prev ? { ...prev, amount: v } : prev
+                                );
                               }}
                             />
 
