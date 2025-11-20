@@ -421,33 +421,15 @@ function SAYEConfigView({
                       </div>
                     </div>
                   </div>
-<Button
-  variant="outline"
-  className="h-7 px-3 text-xs"
-  onClick={() => alert("Export summary coming soon")}
->
-  Export summary
-</Button>
+                  <Button
+                    variant="outline"
+                    className="h-7 px-3 text-xs"
+                    onClick={() => alert("Export summary coming soon")}
+                  >
+                    Export summary
+                  </Button>
                 </div>
-
-                {editingConfigId === cfg.id && (
-                  <div className="mt-4 grid gap-4 border-t border-slate-100 pt-4 text-xs md:grid-cols-2">
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-slate-800">
-                        Invite window
-                      </h4>
-                      <label className="flex flex-col gap-1">
-                        <span className="text-[11px] text-slate-500">
-                          Opens
-                        </span>
-                        <input
-                          type="datetime-local"
-                          value={cfg.inviteWindowOpen}
-                          onChange={(e) =>
-                            handleConfigChange(cfg.id, {
-                              inviteWindowOpen: e.target.value,
-                            })
-                          }
+                
                           className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs"
                         />
                       </label>
