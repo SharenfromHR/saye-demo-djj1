@@ -376,10 +376,6 @@ function SAYEConfigView({
   );
 }
 
-type SAYEImportsViewProps = {
-  planConfigs: PlanConfig[];
-};
-
 type SAYEReportsViewProps = {
   plans: SAYEPlan[];
   planConfigs: PlanConfig[];
