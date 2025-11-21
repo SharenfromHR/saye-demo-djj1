@@ -554,9 +554,16 @@ const [participants, setParticipants] = useState<Participant[]>([
 
   const isWithinInviteBounds =
     !!activeInvite &&
+    !!enrolment &&
     enrolment.amount >= activeInvite.minMonthly &&
     enrolment.amount <= activeInvite.maxMonthly &&
     enrolment.amount <= remainingCap;
+
+  const canConfirmEnrolment =
+    !!activeInvite &&
+    !!enrolment &&
+    hasAcceptedInvite &&
+    isWithinInviteBounds;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
