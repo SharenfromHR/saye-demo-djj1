@@ -559,8 +559,7 @@ const [participants, setParticipants] = useState<Participant[]>([
     enrolment.amount <= activeInvite.maxMonthly &&
     enrolment.amount <= remainingCap;
 
-  const canConfirmEnrolment =
-    !!activeInvite &&
+  const canConfirmEnrolment = !!activeInvite &&
     !!enrolment &&
     hasAcceptedInvite &&
     isWithinInviteBounds;
@@ -857,14 +856,15 @@ const [participants, setParticipants] = useState<Participant[]>([
                           <div className="text-[11px] text-slate-500">
                             You can amend your application any time while the invite window is open.
                           </div>
-                            <Button
-                              className="h-8 px-4 text-xs"
-                              disabled={!canConfirmEnrolment}
-                              onClick={handleConfirmEnrolment}
-                            >
+                          
+                          <Button
+                            className="h-8 px-4 text-xs"
+                            disabled={!canConfirmEnrolment}
+                            onClick={handleConfirmEnrolment}
+                          >
                             {hasApplied ? "Update application" : "Confirm enrolment"}
                           </Button>
-
+                          
                         </div>
                       </div>
                     </CardContent>
