@@ -557,14 +557,15 @@ const [participants, setParticipants] = useState<Participant[]>([
     );
   };
 
-  const canConfirmEnrolment =
-    !!activeInvite &&
-    !!enrolment &&
-    enrolment.accepted &&
-    enrolment.read &&
-    enrolment.amount >= activeInvite.minMonthly &&
-    enrolment.amount <= activeInvite.maxMonthly &&
-    enrolment.amount <= remainingCap;
+    const canConfirmEnrolment = Boolean(
+    activeInvite &&
+      enrolment &&
+      enrolment.accepted &&
+      enrolment.read &&
+      enrolment.amount >= activeInvite.minMonthly &&
+      enrolment.amount <= activeInvite.maxMonthly &&
+      enrolment.amount <= remainingCap
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
