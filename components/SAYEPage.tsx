@@ -452,8 +452,17 @@ const [participants, setParticipants] = useState<Participant[]>([
     return { history, upcoming };
   };
 
-  const totalMonthly = visiblePlans.reduce((sum, p) => sum + p.monthlyContribution, 0);
+    const totalMonthly = visiblePlans.reduce(
+    (sum, p) => sum + p.monthlyContribution,
+    0
+  );
+
   const CAP = 500;
+
+  const remainingCap = selectedParticipant
+    ? Math.max(0, CAP - totalMonthly)
+    : CAP;
+
   const capClasses =
     totalMonthly > CAP
       ? "bg-rose-50 text-rose-700 ring-rose-200"
@@ -540,6 +549,14 @@ const [participants, setParticipants] = useState<Participant[]>([
     );
   };
   
+    const handleConfirmEnrolment = () => {
+    if (!activeInvite || !enrolment) return;
+
+    setEnrolment((prev) =>
+      prev ? { ...prev, hasApplied: true } : prev
+    );
+  };
+
   const canConfirmEnrolment =
     !!activeInvite &&
     !!enrolment &&
@@ -548,7 +565,7 @@ const [participants, setParticipants] = useState<Participant[]>([
     enrolment.amount >= activeInvite.minMonthly &&
     enrolment.amount <= activeInvite.maxMonthly &&
     enrolment.amount <= remainingCap;
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
       <div className="mx-auto max-w-7xl px-4 pt-6 pb-10">
