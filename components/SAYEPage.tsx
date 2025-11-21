@@ -548,9 +548,9 @@ const [participants, setParticipants] = useState<Participant[]>([
     );
   };
 
-  return (
+    return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
-        <div className="mx-auto max-w-7xl px-4 pt-6 pb-10">
+      <div className="mx-auto max-w-7xl px-4 pt-6 pb-10">
         <div className="flex gap-6">
           {/* Sidebar */}
           <aside className="w-60 shrink-0">
