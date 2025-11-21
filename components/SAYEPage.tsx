@@ -547,6 +547,14 @@ const [participants, setParticipants] = useState<Participant[]>([
     );
   };
 
+  const handleConfirmEnrolment = () => {
+    if (!activeInvite || !enrolment) return;
+
+    setEnrolment((prev) =>
+      prev ? { ...prev, hasApplied: true } : prev
+    );
+  };
+
   const hasAcceptedInvite =
     !!enrolment &&
     enrolment.accepted &&
