@@ -401,16 +401,14 @@ const [participants, setParticipants] = useState<Participant[]>([
     );
   }, [enriched, selectedParticipant]);
 
-    // 500 GBP monthly SAYE cap across all active plans for the selected participant
-  const CAP = 500;
-
-  // Sum of all current monthly contributions for visible plans
+  // 500 GBP monthly SAYE cap across all active plans for the selected participant
   const totalMonthly = visiblePlans.reduce(
     (sum, p) => sum + (p.monthlyContribution || 0),
     0
   );
 
-  // How we colour the little cap pill
+  const CAP = 500;
+
   const capClasses =
     totalMonthly > CAP
       ? "bg-rose-50 text-rose-700 ring-rose-200"
@@ -418,8 +416,9 @@ const [participants, setParticipants] = useState<Participant[]>([
       ? "bg-amber-50 text-amber-700 ring-amber-200"
       : "bg-emerald-50 text-emerald-700 ring-emerald-200";
 
-  // Remaining headroom the participant has before hitting £500
-  const remainingCap = Math.max(0, CAP - totalMonthly);
+  const remainingCap = selectedParticipant
+    ? Math.max(0, CAP - totalMonthly)
+    : CAP;
 
   const buildSchedules = (p: (typeof enriched)[number]) => {
     const start = new Date(p.contractStart);
@@ -537,7 +536,6 @@ const [participants, setParticipants] = useState<Participant[]>([
     }
     closeModal();
   };
-
   const toggleInvitePanel = () => {
     if (!activeInvite) return;
 
@@ -568,6 +566,15 @@ const [participants, setParticipants] = useState<Participant[]>([
       prev ? { ...prev, hasApplied: true } : prev
     );
   };
+
+  const canConfirmEnrolment =
+    !!activeInvite &&
+    !!enrolment &&
+    enrolment.accepted &&
+    enrolment.read &&
+    enrolment.amount >= activeInvite.minMonthly &&
+    enrolment.amount <= activeInvite.maxMonthly &&
+    enrolment.amount <= remainingCap;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
@@ -869,23 +876,14 @@ const [participants, setParticipants] = useState<Participant[]>([
                           <div className="text-[11px] text-slate-500">
                             You can amend your application any time while the invite window is open.
                           </div>
-                          <Button
-                            className="h-8 px-4 text-xs"
-                                disabled={
-                                  !activeInvite ||
-                                  !enrolment ||
-                                  !enrolment.read ||
-                                  !enrolment.accepted ||
-                                  enrolment.amount < (activeInvite?.minMonthly ?? 0) ||
-                                  enrolment.amount > (activeInvite?.maxMonthly ?? Infinity) ||
-                                  enrolment.amount > remainingCap
-                                }
-
-                              }
-                            onClick={handleConfirmEnrolment}
-                          >
+                            <Button
+                              className="h-8 px-4 text-xs"
+                              disabled={!canConfirmEnrolment}
+                              onClick={handleConfirmEnrolment}
+                            >
                             {hasApplied ? "Update application" : "Confirm enrolment"}
                           </Button>
+
                         </div>
                       </div>
                     </CardContent>
