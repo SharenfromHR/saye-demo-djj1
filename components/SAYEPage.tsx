@@ -548,14 +548,6 @@ const [participants, setParticipants] = useState<Participant[]>([
       prev ? { ...prev, hasApplied: true } : prev
     );
   };
-  
-    const handleConfirmEnrolment = () => {
-    if (!activeInvite || !enrolment) return;
-
-    setEnrolment((prev) =>
-      prev ? { ...prev, hasApplied: true } : prev
-    );
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
