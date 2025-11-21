@@ -554,11 +554,14 @@ const [participants, setParticipants] = useState<Participant[]>([
     enrolment.read &&
     enrolment.amount >= activeInvite.minMonthly &&
     enrolment.amount <= activeInvite.maxMonthly &&
-    enrolment.amount <= remainingCap;
+    // Helper to check if a given monthly amount fits within the remaining global cap
+    const isWithinGlobalCap = (monthlyAmount: number) => {
+      return monthlyAmount <= remainingCap;
+    };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
-      <div className="mx-auto max-w-7xl px-4 pt-6 pb-10">
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+        <div className="mx-auto max-w-7xl px-4 pt-6 pb-10">
         <div className="flex gap-6">
           {/* Sidebar */}
           <aside className="w-60 shrink-0">
