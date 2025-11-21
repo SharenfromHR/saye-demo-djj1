@@ -517,7 +517,7 @@ const [participants, setParticipants] = useState<Participant[]>([
     closeModal();
   };
 
-    const toggleInvitePanel = () => {
+  const toggleInvitePanel = () => {
     if (!activeInvite) return;
 
     setShowInvitePanel((prev) => {
@@ -841,23 +841,23 @@ const [participants, setParticipants] = useState<Participant[]>([
                             You can amend your application any time while the invite window is open.
                           </div>
                           
-                          <Button
-                            className="h-8 px-4 text-xs"
-                            disabled={
-                              !(
-                                activeInvite &&
-                                enrolment &&
-                                enrolment.accepted &&
-                                enrolment.read &&
-                                enrolment.amount >= activeInvite.minMonthly &&
-                                enrolment.amount <= activeInvite.maxMonthly &&
-                                enrolment.amount <= remainingCap
-                              )
-                            }
-                            onClick={handleConfirmEnrolment}
-                          >
-                            {hasApplied ? "Update application" : "Confirm enrolment"}
-                          </Button>
+<Button
+  className="h-8 px-4 text-xs"
+  disabled={
+    !(
+      activeInvite &&
+      enrolment &&
+      enrolment.accepted &&
+      enrolment.read &&
+      enrolment.amount >= activeInvite.minMonthly &&
+      enrolment.amount <= activeInvite.maxMonthly &&
+      enrolment.amount <= remainingCap
+    )
+  }
+  onClick={handleConfirmEnrolment}
+>
+  {hasApplied ? "Update application" : "Confirm enrolment"}
+</Button>
                           
                         </div>
                       </div>
