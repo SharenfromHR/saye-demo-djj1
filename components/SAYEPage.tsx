@@ -546,31 +546,7 @@ const [participants, setParticipants] = useState<Participant[]>([
       prev ? { ...prev, hasApplied: true } : prev
     );
   };
-
-  const hasAcceptedInvite =
-    !!enrolment &&
-    enrolment.accepted &&
-    enrolment.read;
-
-  const hasAcceptedInvite =
-    !!enrolment &&
-    enrolment.accepted &&
-    enrolment.read;
-
-  const isWithinInviteBounds =
-    !!activeInvite &&
-    !!enrolment &&
-    enrolment.amount >= activeInvite.minMonthly &&
-    enrolment.amount <= activeInvite.maxMonthly &&
-    enrolment.amount <= remainingCap;
-
-  const canConfirmEnrolment = Boolean(
-    activeInvite &&
-      enrolment &&
-      hasAcceptedInvite &&
-      isWithinInviteBounds
-  );
-
+  
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
         <div className="mx-auto max-w-7xl px-4 pt-6 pb-10">
@@ -866,7 +842,17 @@ const [participants, setParticipants] = useState<Participant[]>([
                           
                           <Button
                             className="h-8 px-4 text-xs"
-                            disabled={!canConfirmEnrolment}
+                            disabled={
+                              !(
+                                activeInvite &&
+                                enrolment &&
+                                enrolment.accepted &&
+                                enrolment.read &&
+                                enrolment.amount >= activeInvite.minMonthly &&
+                                enrolment.amount <= activeInvite.maxMonthly &&
+                                enrolment.amount <= remainingCap
+                              )
+                            }
                             onClick={handleConfirmEnrolment}
                           >
                             {hasApplied ? "Update application" : "Confirm enrolment"}
