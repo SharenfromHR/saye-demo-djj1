@@ -547,11 +547,11 @@ const [participants, setParticipants] = useState<Participant[]>([
     );
   };
 
-  const canConfirmEnrolment =
-    !!activeInvite &&
+  const hasAcceptedInvite =
     !!enrolment &&
     enrolment.accepted &&
-    enrolment.read &&
+    enrolment.read;
+
   const isWithinInviteBounds =
     !!activeInvite &&
     enrolment.amount >= activeInvite.minMonthly &&
