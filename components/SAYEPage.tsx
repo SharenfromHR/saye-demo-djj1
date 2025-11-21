@@ -471,26 +471,6 @@ const [participants, setParticipants] = useState<Participant[]>([
     return { history, upcoming };
   };
 
-    const totalMonthly = visiblePlans.reduce(
-    (sum, p) => sum + p.monthlyContribution,
-    0
-  );
-
-  const CAP = 500;
-
-  const remainingCap = selectedParticipant
-    ? Math.max(0, CAP - totalMonthly)
-    : CAP;
-
-  const capClasses =
-    totalMonthly > CAP
-      ? "bg-rose-50 text-rose-700 ring-rose-200"
-      : totalMonthly >= CAP * 0.8
-      ? "bg-amber-50 text-amber-700 ring-amber-200"
-      : "bg-emerald-50 text-emerald-700 ring-emerald-200";
-
-    const remainingCap = selectedParticipant ? Math.max(0, CAP - totalMonthly) : CAP;
-
   const nowForInvites = new Date();
   const openInvites = planConfigs.filter((p) => {
     if (p.status !== "invite") return false;
@@ -794,15 +774,7 @@ const [participants, setParticipants] = useState<Participant[]>([
                                 setEnrolment((prev) => (prev ? { ...prev, amount: v } : prev));
                               }}
                             />
-                            
-                            {enrolment &&
-  enrolment.amount > remainingCap && (
-    <p className="text-xs text-rose-600 mt-1">
-      You’re £{(enrolment.amount - remainingCap).toFixed(2)} over your £{CAP} monthly SAYE cap.
-      You can only save up to £{remainingCap.toFixed(2)} in this plan based on your other
-      contributions.
-    </p>
-  )}
+
                           </div>
                           <div className="text-xs text-slate-500">
                             <div>
