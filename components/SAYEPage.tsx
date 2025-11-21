@@ -401,6 +401,26 @@ const [participants, setParticipants] = useState<Participant[]>([
     );
   }, [enriched, selectedParticipant]);
 
+    // 500 GBP monthly SAYE cap across all active plans for the selected participant
+  const CAP = 500;
+
+  // Sum of all current monthly contributions for visible plans
+  const totalMonthly = visiblePlans.reduce(
+    (sum, p) => sum + (p.monthlyContribution || 0),
+    0
+  );
+
+  // How we colour the little cap pill
+  const capClasses =
+    totalMonthly > CAP
+      ? "bg-rose-50 text-rose-700 ring-rose-200"
+      : totalMonthly >= CAP * 0.8
+      ? "bg-amber-50 text-amber-700 ring-amber-200"
+      : "bg-emerald-50 text-emerald-700 ring-emerald-200";
+
+  // Remaining headroom the participant has before hitting £500
+  const remainingCap = Math.max(0, CAP - totalMonthly);
+
   const buildSchedules = (p: (typeof enriched)[number]) => {
     const start = new Date(p.contractStart);
     const now = new Date();
@@ -767,6 +787,15 @@ const [participants, setParticipants] = useState<Participant[]>([
                                 setEnrolment((prev) => (prev ? { ...prev, amount: v } : prev));
                               }}
                             />
+                            
+                            {enrolment &&
+  enrolment.amount > remainingCap && (
+    <p className="text-xs text-rose-600 mt-1">
+      You’re £{(enrolment.amount - remainingCap).toFixed(2)} over your £{CAP} monthly SAYE cap.
+      You can only save up to £{remainingCap.toFixed(2)} in this plan based on your other
+      contributions.
+    </p>
+  )}
                           </div>
                           <div className="text-xs text-slate-500">
                             <div>
@@ -842,16 +871,16 @@ const [participants, setParticipants] = useState<Participant[]>([
                           </div>
                           <Button
                             className="h-8 px-4 text-xs"
-                              disabled={
-                                !(
-                                  activeInvite &&
-                                  enrolment &&
-                                  enrolment.accepted &&
-                                  enrolment.read &&
-                                  enrolment.amount >= activeInvite.minMonthly &&
-                                  enrolment.amount <= activeInvite.maxMonthly &&
-                                  enrolment.amount <= remainingCap
-                                )
+                                disabled={
+                                  !activeInvite ||
+                                  !enrolment ||
+                                  !enrolment.read ||
+                                  !enrolment.accepted ||
+                                  enrolment.amount < (activeInvite?.minMonthly ?? 0) ||
+                                  enrolment.amount > (activeInvite?.maxMonthly ?? Infinity) ||
+                                  enrolment.amount > remainingCap
+                                }
+
                               }
                             onClick={handleConfirmEnrolment}
                           >
