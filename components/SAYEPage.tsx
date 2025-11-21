@@ -516,14 +516,15 @@ const [participants, setParticipants] = useState<Participant[]>([
     }
     closeModal();
   };
-  const toggleInvitePanel = () => {
+
+    const toggleInvitePanel = () => {
     if (!activeInvite) return;
 
     setShowInvitePanel((prev) => {
       const next = !prev;
 
       // If they open the panel for the first time, pre-fill with a mid value
-      if (next && !enrolment) {
+      if (next && !enrolment && activeInvite) {
         const mid =
           (activeInvite.minMonthly + activeInvite.maxMonthly) / 2;
 
@@ -546,7 +547,7 @@ const [participants, setParticipants] = useState<Participant[]>([
       prev ? { ...prev, hasApplied: true } : prev
     );
   };
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
         <div className="mx-auto max-w-7xl px-4 pt-6 pb-10">
