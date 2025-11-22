@@ -63,6 +63,7 @@ type PlanConfig = {
 const CURRENT_PRICE_GBP = 1.4;
 const TICKER = "DJJ";
 const COMPANY = "DJJ Ltd";
+const GLOBAL_CAP = 500; // £500 global monthly cap
 
 interface EnrollmentState {
   amount: number;
