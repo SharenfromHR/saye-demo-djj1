@@ -469,18 +469,34 @@ const [selectedParticipant, setSelectedParticipant] = useState<Participant | nul
       history.push({ label, date, amount: p.monthlyContribution, status: isMissed ? "missed" : "paid" });
     }
 
-    const maturityMonthStart = new Date(p.maturityDate.getFullYear(), p.maturityDate.getMonth(), 1);
-    for (
-      let d = new Date(now.getFullYear(), now.getMonth(), 10);
-      d < maturityMonthStart;
-      d = new Date(d.getFullYear(), d.getMonth() + 1, 10)
-    ) {
-      upcoming.push({
-        label: d.toLocaleString(undefined, { month: "long", year: "numeric" }),
-        date: d.toLocaleDateString(),
-        amount: p.monthlyContribution,
-      });
-    }
+// --- NEW LOGIC: first payment is the month BEFORE contract start ---
+const contractStart = new Date(p.contractStart);
+
+// First deduction = month before contract start
+const firstDeduction = new Date(contractStart.getFullYear(), contractStart.getMonth() - 1, 10);
+
+// Starting point for upcoming schedule:
+// If we're already past first deduction, start from current month
+let upcomingStart = new Date(
+  Math.max(firstDeduction.getTime(), new Date(now.getFullYear(), now.getMonth(), 10).getTime())
+);
+
+// Loop until maturity
+for (
+  let d = new Date(upcomingStart);
+  d < maturityMonthStart;
+  d = new Date(d.getFullYear(), d.getMonth() + 1, 10)
+) {
+  upcoming.push({
+    label: d.toLocaleString(undefined, { month: "long", year: "numeric" }),
+    date: d.toLocaleDateString(),
+    amount: p.monthlyContribution,
+  });
+}
+
+if (upcoming.length) {
+  upcoming[upcoming.length - 1].isLast = true;
+}
     if (upcoming.length) upcoming[upcoming.length - 1].isLast = true;
 
     return { history, upcoming };
