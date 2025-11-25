@@ -44,6 +44,107 @@ const formatMoney = (n: number, ccy = "GBP") =>
     maximumFractionDigits: 2,
   }).format(n);
 
+type PlanScheduleSource = {
+  contractStart: string;
+  maturityDate: Date;
+  monthlyContribution: number;
+  missedPayments?: number;
+};
+
+function buildScheduleForPlan(p: PlanScheduleSource) {
+  const start = new Date(p.contractStart);
+  const now = new Date();
+  const lastCompleted = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  type H = {
+    label: string;
+    date: string;
+    amount: number;
+    status: "paid" | "missed";
+  };
+  type U = { label: string; date: string; amount: number; isLast?: boolean };
+
+  const history: H[] = [];
+  const upcoming: U[] = [];
+
+  // HISTORY: from contract start up to last completed month
+  const completedMonths: Date[] = [];
+  for (
+    let d = new Date(start.getFullYear(), start.getMonth(), 1);
+    d <= lastCompleted;
+    d = new Date(d.getFullYear(), d.getMonth() + 1, 1)
+  ) {
+    completedMonths.push(new Date(d));
+  }
+
+  const missedSet = new Set<string>();
+  for (let i = 0; i < (p.missedPayments || 0); i++) {
+    const md = completedMonths[completedMonths.length - 1 - i];
+    if (md) missedSet.add(`${md.getFullYear()}:${md.getMonth()}`);
+  }
+
+  for (const d of completedMonths) {
+    const label = d.toLocaleString(undefined, {
+      month: "long",
+      year: "numeric",
+    });
+    const date = new Date(
+      d.getFullYear(),
+      d.getMonth(),
+      10
+    ).toLocaleDateString();
+    const key = `${d.getFullYear()}:${d.getMonth()}`;
+    const isMissed = missedSet.has(key);
+    history.push({
+      label,
+      date,
+      amount: p.monthlyContribution,
+      status: isMissed ? "missed" : "paid",
+    });
+  }
+
+  // First day of maturity month
+  const maturityMonthStart = new Date(
+    p.maturityDate.getFullYear(),
+    p.maturityDate.getMonth(),
+    1
+  );
+
+  // First deduction is the month BEFORE contract start
+  const contractStart = new Date(p.contractStart);
+  const firstDeduction = new Date(
+    contractStart.getFullYear(),
+    contractStart.getMonth() - 1,
+    10
+  );
+
+  const nowMonthStart = new Date(now.getFullYear(), now.getMonth(), 10);
+  const upcomingStart = new Date(
+    Math.max(firstDeduction.getTime(), nowMonthStart.getTime())
+  );
+
+  for (
+    let d = new Date(upcomingStart);
+    d < maturityMonthStart;
+    d = new Date(d.getFullYear(), d.getMonth() + 1, 10)
+  ) {
+    upcoming.push({
+      label: d.toLocaleString(undefined, {
+        month: "long",
+        year: "numeric",
+      }),
+      date: d.toLocaleDateString(),
+      amount: p.monthlyContribution,
+    });
+  }
+
+  if (upcoming.length) {
+    upcoming[upcoming.length - 1].isLast = true;
+  }
+
+  return { history, upcoming };
+}
+
 function computeMaturity(contractStartISO: string, termMonths: number, missedPayments = 0): Date {
   const start = new Date(contractStartISO);
   const y = start.getFullYear();
@@ -1307,7 +1408,7 @@ return (
                       <tbody className="divide-y divide-slate-100 bg-slate-50/50">
                           {visiblePlans.map((p, idx) => {
                           const isOpen = !!openRows[idx];
-                          const { history, upcoming } = buildSchedules(p);
+                          const { history, upcoming } = buildScheduleForPlan(p);
                           return (
                             <React.Fragment key={idx}>
                               <tr className={`hover:bg-white/70 ${isOpen ? "bg-white/60" : ""}`}>
