@@ -1153,7 +1153,9 @@ const [participants, setParticipants] = useState<Participant[]>([
                 onSelectParticipant={(p) => {
                   setConfigTab("participants");
                   setSelectedParticipant(p);
+                  setView("participant");
                 }}
+
               />
             )}
 
