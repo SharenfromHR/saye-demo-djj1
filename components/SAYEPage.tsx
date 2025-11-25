@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Info, ChevronDown } from "lucide-react";
@@ -310,6 +310,11 @@ const [participants, setParticipants] = useState<Participant[]>([
 
   const [showInvitePanel, setShowInvitePanel] = useState(false);
   const [enrolment, setEnrolment] = useState<EnrollmentState | null>(null);
+
+  useEffect(() => {
+    setShowInvitePanel(false);
+    setEnrolment(null);
+  }, [selectedParticipant]);
 
     const enriched = useMemo(() => {
     const now = new Date();
@@ -724,6 +729,8 @@ const [participants, setParticipants] = useState<Participant[]>([
                         className="h-5 w-5 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-xs"
                         onClick={() => {
                           setSelectedParticipant(null);
+                          setShowInvitePanel(false);
+                          setEnrolment(null);
                           setConfigTab("participants");
                           setView("config");
                         }}
