@@ -435,7 +435,7 @@ const [selectedParticipant, setSelectedParticipant] = useState<Participant | nul
     );
   }, [enriched, selectedParticipant]);
 
-  const buildSchedules = (p: (typeof enriched)[number]) => {
+    const buildSchedules = (p: (typeof enriched)[number]) => {
     const start = new Date(p.contractStart);
     const now = new Date();
     const lastCompleted = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -446,6 +446,7 @@ const [selectedParticipant, setSelectedParticipant] = useState<Participant | nul
     const history: H[] = [];
     const upcoming: U[] = [];
 
+    // HISTORY: from contract start up to last completed month
     const completedMonths: Date[] = [];
     for (
       let d = new Date(start.getFullYear(), start.getMonth(), 1);
@@ -462,24 +463,76 @@ const [selectedParticipant, setSelectedParticipant] = useState<Participant | nul
     }
 
     for (const d of completedMonths) {
-      const label = d.toLocaleString(undefined, { month: "long", year: "numeric" });
-      const date = new Date(d.getFullYear(), d.getMonth(), 10).toLocaleDateString();
+      const label = d.toLocaleString(undefined, {
+        month: "long",
+        year: "numeric",
+      });
+      const date = new Date(
+        d.getFullYear(),
+        d.getMonth(),
+        10
+      ).toLocaleDateString();
       const key = `${d.getFullYear()}:${d.getMonth()}`;
       const isMissed = missedSet.has(key);
-      history.push({ label, date, amount: p.monthlyContribution, status: isMissed ? "missed" : "paid" });
+      history.push({
+        label,
+        date,
+        amount: p.monthlyContribution,
+        status: isMissed ? "missed" : "paid",
+      });
     }
 
-// --- NEW LOGIC: first payment is the month BEFORE contract start ---
-const contractStart = new Date(p.contractStart);
+    // MATURITY ANCHOR: first day of maturity month
+    const maturityMonthStart = new Date(
+      p.maturityDate.getFullYear(),
+      p.maturityDate.getMonth(),
+      1
+    );
 
-// First deduction = month before contract start
-const firstDeduction = new Date(contractStart.getFullYear(), contractStart.getMonth() - 1, 10);
+    // UPCOMING: first deduction is the month BEFORE contract start
+    const contractStart = new Date(p.contractStart);
 
-// Starting point for upcoming schedule:
-// If we're already past first deduction, start from current month
-let upcomingStart = new Date(
-  Math.max(firstDeduction.getTime(), new Date(now.getFullYear(), now.getMonth(), 10).getTime())
-);
+    // First deduction month: month before contract start
+    const firstDeduction = new Date(
+      contractStart.getFullYear(),
+      contractStart.getMonth() - 1,
+      10
+    );
+
+    // Start upcoming schedule from:
+    //  - firstDeduction, if it is still in the future
+    //  - otherwise, from the current month
+    const currentMonthStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      10
+    );
+
+    const upcomingStart = new Date(
+      Math.max(firstDeduction.getTime(), currentMonthStart.getTime())
+    );
+
+    for (
+      let d = new Date(upcomingStart);
+      d < maturityMonthStart;
+      d = new Date(d.getFullYear(), d.getMonth() + 1, 10)
+    ) {
+      upcoming.push({
+        label: d.toLocaleString(undefined, {
+          month: "long",
+          year: "numeric",
+        }),
+        date: d.toLocaleDateString(),
+        amount: p.monthlyContribution,
+      });
+    }
+
+    if (upcoming.length) {
+      upcoming[upcoming.length - 1].isLast = true;
+    }
+
+    return { history, upcoming };
+  };
 
 // Loop until maturity
 for (
