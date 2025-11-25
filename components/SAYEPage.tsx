@@ -1147,12 +1147,12 @@ const [participants, setParticipants] = useState<Participant[]>([
                 setPlanConfigs={setPlanConfigs}
                 participants={participants}
                 setParticipants={setParticipants}
+                enrolments={enrolmentRecords}
                 tab={configTab}
                 setTab={setConfigTab}
                 onSelectParticipant={(p) => {
                   setConfigTab("participants");
                   setSelectedParticipant(p);
-                  setView("participant");
                 }}
               />
             )}
@@ -2032,6 +2032,7 @@ type SAYEConfigViewProps = {
   setPlanConfigs: React.Dispatch<React.SetStateAction<PlanConfig[]>>;
   participants: Participant[];
   setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
+  enrolments: EnrollmentRecord[];              // 👈 NEW
   tab: "plans" | "participants";
   setTab: React.Dispatch<React.SetStateAction<"plans" | "participants">>;
   onSelectParticipant: (p: Participant) => void;
@@ -2042,6 +2043,7 @@ function SAYEConfigView({
   setPlanConfigs,
   participants,
   setParticipants,
+  enrolments,
   tab,
   setTab,
   onSelectParticipant,
@@ -2106,15 +2108,62 @@ function SAYEConfigView({
     setDraft((prev) => (prev ? { ...prev, [field]: value } : prev));
   }
 
-  const createContractsForPlan = (index: number) => {
+    const createContractsForPlan = (index: number) => {
+    const plan = planConfigs[index];
+    if (!plan) return;
+
+    // All enrolments for this specific plan
+    const planEnrolments = enrolments.filter(
+      (e) => e.grantName === plan.grantName
+    );
+
+    // 1) Write contracts to each participant based on their enrolment
+    if (planEnrolments.length > 0) {
+      setParticipants((prev) =>
+        prev.map((participant) => {
+          const enrol = planEnrolments.find(
+            (e) => e.participantId === participant.id
+          );
+          if (!enrol) return participant;
+
+          const existingContracts = Array.isArray(participant.contracts)
+            ? participant.contracts
+            : [];
+
+          // Remove any existing contract for this plan (re-create cleanly)
+          const withoutThisPlan = existingContracts.filter(
+            (c: any) => c.grantName !== plan.grantName
+          );
+
+          const newContract = {
+            grantName: plan.grantName,
+            monthlyContribution: enrol.amount,
+            missedPayments: 0,
+          };
+
+          return {
+            ...participant,
+            contracts: [...withoutThisPlan, newContract],
+          };
+        })
+      );
+    }
+
+    // 2) Mark plan as live and set a "typical" monthly contribution
     setPlanConfigs((prev) =>
       prev.map((p, i) => {
         if (i !== index) return p;
-        const midMonthly = (p.minMonthly + p.maxMonthly) / 2;
+
+        const relevant = planEnrolments;
+        const avgMonthly =
+          relevant.length > 0
+            ? relevant.reduce((sum, e) => sum + e.amount, 0) / relevant.length
+            : (p.minMonthly + p.maxMonthly) / 2;
+
         return {
           ...p,
           status: "live" as PlanStatus,
-          monthlyContribution: midMonthly,
+          monthlyContribution: avgMonthly,
         };
       })
     );
