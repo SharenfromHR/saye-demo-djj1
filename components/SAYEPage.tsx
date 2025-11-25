@@ -359,13 +359,19 @@ const [participants, setParticipants] = useState<Participant[]>([
       const grantName = (c as any).grantName as string | undefined;
       if (!grantName) continue;
 
-      const base = enriched.find((p) => p.grantName === grantName);
-      if (!base) continue;
+    const base = enriched.find((p) => p.grantName === grantName);
+    if (!base) continue;
 
-      const monthlyContribution =
-        (c as any).monthlyContribution ?? base.monthlyContribution;
-      const missedPayments =
-        (c as any).missedPayments ?? base.missedPayments ?? 0;
+    const monthlyContribution =
+      (c as any).monthlyContribution ?? base.monthlyContribution;
+
+    // If this participant is not contributing to this plan, hide it from their view
+    if (!monthlyContribution || monthlyContribution <= 0) {
+      continue;
+    }
+
+    const missedPayments =
+      (c as any).missedPayments ?? base.missedPayments ?? 0
 
       const savingsAmount = Math.max(
         0,
