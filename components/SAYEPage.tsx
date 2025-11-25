@@ -435,12 +435,17 @@ const [selectedParticipant, setSelectedParticipant] = useState<Participant | nul
     );
   }, [enriched, selectedParticipant]);
 
-    const buildSchedules = (p: (typeof enriched)[number]) => {
+  const buildSchedules = (p: (typeof enriched)[number]) => {
     const start = new Date(p.contractStart);
     const now = new Date();
     const lastCompleted = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-    type H = { label: string; date: string; amount: number; status: "paid" | "missed" };
+    type H = {
+      label: string;
+      date: string;
+      amount: number;
+      status: "paid" | "missed";
+    };
     type U = { label: string; date: string; amount: number; isLast?: boolean };
 
     const history: H[] = [];
@@ -534,28 +539,11 @@ const [selectedParticipant, setSelectedParticipant] = useState<Participant | nul
     return { history, upcoming };
   };
 
-// Loop until maturity
-for (
-  let d = new Date(upcomingStart);
-  d < maturityMonthStart;
-  d = new Date(d.getFullYear(), d.getMonth() + 1, 10)
-) {
-  upcoming.push({
-    label: d.toLocaleString(undefined, { month: "long", year: "numeric" }),
-    date: d.toLocaleDateString(),
-    amount: p.monthlyContribution,
-  });
-}
-
-if (upcoming.length) {
-  upcoming[upcoming.length - 1].isLast = true;
-}
-    if (upcoming.length) upcoming[upcoming.length - 1].isLast = true;
-
-    return { history, upcoming };
-  };
-
-  const totalMonthly = visiblePlans.reduce((sum, p) => sum + p.monthlyContribution, 0);
+  const totalMonthly = visiblePlans.reduce(
+    (sum, p) => sum + p.monthlyContribution,
+    0
+  );
+  
   const CAP = 500;
   const capClasses =
     totalMonthly > CAP
