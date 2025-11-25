@@ -2356,16 +2356,12 @@ function SAYEConfigView({
                   </tbody>
                   {participants.length === 0 && (
                     <tr>
-                      <td
-                        colSpan={6}
-                        className="px-3 py-4 text-xs text-slate-500 text-center"
-                      >
+                      <td colSpan={6} className="px-3 py-4 text-xs text-slate-500 text-center">
                         No participants loaded in this demo.
                       </td>
                     </tr>
                   )}
-                </tbody>
-              </table>
+                  </table>
             </div>
           </CardContent>
         </Card>
