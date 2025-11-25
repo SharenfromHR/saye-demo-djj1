@@ -1095,7 +1095,11 @@ const [participants, setParticipants] = useState<Participant[]>([
             )}
 
             {view === "reports" && (
-              <SAYEReportsView plans={enriched} planConfigs={planConfigs} />
+              <SAYEReportsView
+                plans={enriched}
+                planConfigs={planConfigs}
+                participants={participants}
+              />
             )}
 
             {view === "imports" && (
@@ -1164,10 +1168,13 @@ type ReportKey = "summary" | "missed" | "maturity" | "cap";
 function SAYEReportsView({
   plans,
   planConfigs,
+  participants,
 }: {
   plans: any[];
   planConfigs: PlanConfig[];
+  participants: Participant[];
 }) {
+
   const [activeReport, setActiveReport] = useState<ReportKey>("summary");
 
   const totalMonthly = plans.reduce(
@@ -1176,10 +1183,105 @@ function SAYEReportsView({
   );
   const CAP = 500;
 
+    // Flatten all participant contracts into a single report array
+  const allContracts = useMemo(() => {
+    const livePlansByName = new Map(
+      planConfigs.map((p) => [p.grantName, p as any])
+    );
+
+    const rows: any[] = [];
+
+    participants.forEach((participant) => {
+      const contracts = Array.isArray(participant.contracts)
+        ? participant.contracts
+        : [];
+
+      contracts.forEach((contract: any) => {
+        const monthly = contract.monthlyContribution ?? 0;
+
+        // Skip non-contributors (0 monthly)
+        if (!monthly) return;
+
+        const plan = livePlansByName.get(contract.grantName);
+        const enrichedPlan =
+          plans.find((p: any) => p.grantName === contract.grantName) || plan;
+
+        rows.push({
+          // Participant info
+          participantId: participant.id,
+          participantName: participant.name,
+          employeeId: participant.employeeId,
+          email: participant.email,
+          entity: participant.entity,
+          country: participant.country,
+          location: participant.location,
+          currency: participant.currency || "GBP",
+
+          // Contract info
+          grantName: contract.grantName,
+          monthlyContribution: monthly,
+          missedPayments: contract.missedPayments ?? 0,
+
+          // Plan config info
+          planStatus: plan?.status,
+          termYears: plan?.termYears,
+          optionPrice: plan?.optionPrice,
+          bonusRate: plan?.bonusRate,
+          grantDate: plan?.grantDate,
+          contractStart: plan?.contractStart,
+          termMonths: plan?.termMonths,
+
+          // Enriched metrics (where available)
+          maturityDate: enrichedPlan?.maturityDate
+            ? enrichedPlan.maturityDate.toISOString().slice(0, 10)
+            : undefined,
+          savingsAmount: enrichedPlan?.savingsAmount,
+          optionsGranted: enrichedPlan?.optionsGranted,
+          maturityValueAt5pc: enrichedPlan?.maturityValueAt5pc,
+          estimatedGain: enrichedPlan?.estimatedGain,
+        });
+      });
+    });
+
+    return rows;
+  }, [participants, planConfigs, plans]);
+
+  const exportToCsv = () => {
+    if (!allContracts.length) {
+      alert("No data to export yet.");
+      return;
+    }
+
+    const headers = Object.keys(allContracts[0]);
+
+    const escape = (value: unknown): string => {
+      if (value === null || value === undefined) return "";
+      const str = String(value);
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const lines = [
+      headers.map(escape).join(","),
+      ...allContracts.map((row) =>
+        headers.map((h) => escape((row as any)[h])).join(",")
+      ),
+    ];
+
+    const blob = new Blob([lines.join("\r\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "saye-full-report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4">
-      <Card className="rounded-2xl border-none shadow-sm">
-        <CardContent className="p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-lg font-semibold tracking-tight">
@@ -1189,6 +1291,21 @@ function SAYEReportsView({
                 Run quick, pre-configured reports over your SAYE contracts and
                 offerings.
               </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="text-[11px] text-slate-500">
+                Total contracts:{" "}
+                <span className="font-semibold">{allContracts.length}</span>
+              </div>
+              <Button
+                type="button"
+                className="h-8 px-3 text-xs"
+                variant="outline"
+                onClick={exportToCsv}
+              >
+                Export CSV
+              </Button>
             </div>
           </div>
 
