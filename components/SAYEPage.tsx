@@ -435,109 +435,310 @@ const [selectedParticipant, setSelectedParticipant] = useState<Participant | nul
     );
   }, [enriched, selectedParticipant]);
 
-  const buildSchedules = (p: (typeof enriched)[number]) => {
-    const start = new Date(p.contractStart);
-    const now = new Date();
-    const lastCompleted = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+function SAYEImportsView({
+  planConfigs,
+  participants,
+  setParticipants,
+}: {
+  planConfigs: PlanConfig[];
+  participants: Participant[];
+  setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
+}) {
+  const [selectedPlanIndex, setSelectedPlanIndex] = useState<number>(0);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [fileContent, setFileContent] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [importSummary, setImportSummary] = useState<{
+    totalRows: number;
+    updated: number;
+    unmatched: number;
+  } | null>(null);
 
-    type H = {
-      label: string;
-      date: string;
-      amount: number;
-      status: "paid" | "missed";
+  const selectedPlan = planConfigs[selectedPlanIndex];
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setFileName(file.name);
+    setStatus("File loaded. Click Validate to check the contents.");
+    setImportSummary(null);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || "");
+      setFileContent(text);
     };
-    type U = { label: string; date: string; amount: number; isLast?: boolean };
-
-    const history: H[] = [];
-    const upcoming: U[] = [];
-
-    // HISTORY: from contract start up to last completed month
-    const completedMonths: Date[] = [];
-    for (
-      let d = new Date(start.getFullYear(), start.getMonth(), 1);
-      d <= lastCompleted;
-      d = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-    ) {
-      completedMonths.push(new Date(d));
-    }
-
-    const missedSet = new Set<string>();
-    for (let i = 0; i < (p.missedPayments || 0); i++) {
-      const md = completedMonths[completedMonths.length - 1 - i];
-      if (md) missedSet.add(`${md.getFullYear()}:${md.getMonth()}`);
-    }
-
-    for (const d of completedMonths) {
-      const label = d.toLocaleString(undefined, {
-        month: "long",
-        year: "numeric",
-      });
-      const date = new Date(
-        d.getFullYear(),
-        d.getMonth(),
-        10
-      ).toLocaleDateString();
-      const key = `${d.getFullYear()}:${d.getMonth()}`;
-      const isMissed = missedSet.has(key);
-      history.push({
-        label,
-        date,
-        amount: p.monthlyContribution,
-        status: isMissed ? "missed" : "paid",
-      });
-    }
-
-    // MATURITY ANCHOR: first day of maturity month
-    const maturityMonthStart = new Date(
-      p.maturityDate.getFullYear(),
-      p.maturityDate.getMonth(),
-      1
-    );
-
-    // UPCOMING: first deduction is the month BEFORE contract start
-    const contractStart = new Date(p.contractStart);
-
-    // First deduction month: month before contract start
-    const firstDeduction = new Date(
-      contractStart.getFullYear(),
-      contractStart.getMonth() - 1,
-      10
-    );
-
-    // Start upcoming schedule from:
-    //  - firstDeduction, if it is still in the future
-    //  - otherwise, from the current month
-    const currentMonthStart = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      10
-    );
-
-    const upcomingStart = new Date(
-      Math.max(firstDeduction.getTime(), currentMonthStart.getTime())
-    );
-
-    for (
-      let d = new Date(upcomingStart);
-      d < maturityMonthStart;
-      d = new Date(d.getFullYear(), d.getMonth() + 1, 10)
-    ) {
-      upcoming.push({
-        label: d.toLocaleString(undefined, {
-          month: "long",
-          year: "numeric",
-        }),
-        date: d.toLocaleDateString(),
-        amount: p.monthlyContribution,
-      });
-    }
-
-    if (upcoming.length) {
-      upcoming[upcoming.length - 1].isLast = true;
-    }
-
-    return { history, upcoming };
+    reader.readAsText(file);
   };
+
+  const parseContributionCsv = (raw: string) => {
+    const rows: { employeeId: string; amount: number }[] = [];
+    let error: string | null = null;
+
+    const lines = raw
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    if (!lines.length) {
+      return { rows, error: "File appears to be empty." };
+    }
+
+    const headerCells = lines[0]
+      .split(",")
+      .map((h) => h.trim().toLowerCase());
+
+    const empIdx = headerCells.findIndex((h) =>
+      ["employeeid", "employee_id", "employee id", "empid"].includes(h)
+    );
+    const amtIdx = headerCells.findIndex((h) =>
+      [
+        "amount",
+        "monthlycontribution",
+        "monthly_contribution",
+        "contribution",
+      ].includes(h)
+    );
+
+    if (empIdx === -1 || amtIdx === -1) {
+      return {
+        rows,
+        error:
+          'Header row must include "employeeId" and "amount" (or equivalent headers like monthlyContribution).',
+      };
+    }
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      const cells = line.split(",");
+      if (cells.length <= Math.max(empIdx, amtIdx)) continue;
+
+      const employeeId = cells[empIdx]?.trim();
+      const rawAmt = cells[amtIdx]?.trim();
+
+      if (!employeeId || !rawAmt) continue;
+
+      const amount = Number(rawAmt);
+      if (!isFinite(amount) || amount <= 0) continue;
+
+      rows.push({ employeeId, amount });
+    }
+
+    if (!rows.length) {
+      error =
+        "No valid rows found. Check employee IDs and contribution amounts are populated.";
+    }
+
+    return { rows, error };
+  };
+
+  const handleValidate = () => {
+    if (!fileContent) {
+      setStatus("Please choose a CSV file first.");
+      setImportSummary(null);
+      return;
+    }
+
+    const { rows, error } = parseContributionCsv(fileContent);
+    if (error) {
+      setStatus(error);
+      setImportSummary(null);
+      return;
+    }
+
+    setStatus(`Validation complete. ${rows.length} row(s) ready to import.`);
+    setImportSummary({
+      totalRows: rows.length,
+      updated: 0,
+      unmatched: 0,
+    });
+  };
+
+  const handleImport = () => {
+    if (!fileContent) {
+      setStatus("Please choose and validate a CSV file first.");
+      setImportSummary(null);
+      return;
+    }
+
+    const targetPlan = planConfigs[selectedPlanIndex];
+    if (!targetPlan) {
+      setStatus("Please select a valid SAYE plan.");
+      setImportSummary(null);
+      return;
+    }
+
+    const { rows, error } = parseContributionCsv(fileContent);
+    if (error) {
+      setStatus(error);
+      setImportSummary(null);
+      return;
+    }
+
+    if (!rows.length) {
+      setStatus("No valid rows to import.");
+      setImportSummary(null);
+      return;
+    }
+
+    let updated = 0;
+
+    // Map of employeeIds we actually matched
+    const matchedEmployeeIds = new Set<string>();
+
+    const updatedParticipants = participants.map((p) => {
+      const pEmp = p.employeeId?.trim().toLowerCase();
+      if (!pEmp) return p;
+
+      const match = rows.find(
+        (r) => r.employeeId.trim().toLowerCase() === pEmp
+      );
+      if (!match) return p;
+
+      matchedEmployeeIds.add(pEmp);
+      updated++;
+
+      const existingContracts = Array.isArray(p.contracts)
+        ? p.contracts
+        : [];
+
+      const withoutThisPlan = existingContracts.filter(
+        (c: any) => c.grantName !== targetPlan.grantName
+      );
+
+      const newContract = {
+        grantName: targetPlan.grantName,
+        monthlyContribution: match.amount,
+        missedPayments: 0,
+      };
+
+      return {
+        ...p,
+        contracts: [...withoutThisPlan, newContract],
+      };
+    });
+
+    const unmatched = rows.filter((r) => {
+      const id = r.employeeId.trim().toLowerCase();
+      return !matchedEmployeeIds.has(id);
+    }).length;
+
+    setParticipants(updatedParticipants);
+
+    setStatus(
+      `Import complete. ${updated} participant(s) updated. ${unmatched} row(s) did not match any employee ID in this demo set.`
+    );
+    setImportSummary({
+      totalRows: rows.length,
+      updated,
+      unmatched,
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card className="rounded-2xl border-none shadow-sm">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight">
+                SAYE imports
+              </h1>
+              <p className="text-xs text-slate-500 mt-1">
+                Load contribution files against a specific SAYE plan to update
+                savings positions for demo participants.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-600">
+                Target SAYE plan
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={selectedPlanIndex}
+                onChange={(e) =>
+                  setSelectedPlanIndex(Number(e.target.value) || 0)
+                }
+              >
+                {planConfigs.map((p, i) => (
+                  <option key={i} value={i}>
+                    {p.grantName} ({p.termYears}y, opt px{" "}
+                    {formatMoney(p.optionPrice)})
+                  </option>
+                ))}
+              </select>
+              {selectedPlan && (
+                <p className="text-[11px] text-slate-500">
+                  Invite window:{" "}
+                  {new Date(selectedPlan.inviteOpen).toLocaleString()} –{" "}
+                  {new Date(selectedPlan.inviteClose).toLocaleString()}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-600">
+                Contribution file (.csv)
+              </label>
+              <input
+                type="file"
+                accept=".csv"
+                className="block w-full text-xs text-slate-600"
+                onChange={handleFileChange}
+              />
+              <div className="flex gap-2 pt-1">
+                <Button
+                  className="h-8 px-3 text-xs"
+                  type="button"
+                  disabled={!fileName || !fileContent}
+                  onClick={handleValidate}
+                >
+                  Validate file
+                </Button>
+                <Button
+                  className="h-8 px-3 text-xs"
+                  type="button"
+                  disabled={!fileName || !fileContent}
+                  onClick={handleImport}
+                >
+                  Import contributions
+                </Button>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Expected columns:{" "}
+                <code className="font-mono bg-slate-100 px-1 rounded">
+                  employeeId, amount
+                </code>{" "}
+                (additional columns are ignored).
+              </p>
+            </div>
+          </div>
+
+          {status && (
+            <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
+              <div className="font-medium mb-0.5">
+                {fileName ? fileName : "No file selected"}
+              </div>
+              <div className="mb-1">{status}</div>
+              {importSummary && (
+                <div className="text-[11px] text-slate-500">
+                  Rows in file: {importSummary.totalRows} • Updated:{" "}
+                  {importSummary.updated} • Unmatched:{" "}
+                  {importSummary.unmatched}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
   const totalMonthly = visiblePlans.reduce(
     (sum, p) => sum + p.monthlyContribution,
@@ -1288,7 +1489,11 @@ return (
             )}
             
             {view === "imports" && (
-              <SAYEImportsView planConfigs={planConfigs} />
+              <SAYEImportsView
+                planConfigs={planConfigs}
+                participants={participants}
+                setParticipants={setParticipants}
+              />
             )}
           </main>
 
