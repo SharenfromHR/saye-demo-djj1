@@ -2320,27 +2320,40 @@ function SAYEConfigView({
                     <th className="text-right px-3 py-2 font-semibold text-slate-500">Contracts</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {participants.map((p) => (
-                    <tr key={p.id}>
-                            <td className="px-3 py-2 text-xs font-medium text-slate-800">
-<button
-  type="button"
-  onClick={() => onSelectParticipant(p)}
-  className="text-indigo-600 hover:underline"
->
-  {p.name}
-</button>
-      </td>
-                      <td className="px-3 py-2 text-xs text-slate-700">{p.employeeId ?? "—"}</td>
-                      <td className="px-3 py-2 text-xs text-slate-700">{p.email ?? "—"}</td>
-                      <td className="px-3 py-2 text-xs text-slate-700">{p.location ?? "—"}</td>
-                      <td className="px-3 py-2 text-xs text-slate-700">{p.currency ?? "—"}</td>
-                      <td className="px-3 py-2 text-xs text-right text-slate-700">
-                        {Array.isArray(p.contracts) ? p.contracts.length : 0}
-                      </td>
-                    </tr>
-                  ))}
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {participants.map((p) => (
+                      <tr key={p.id}>
+                        <td className="px-3 py-2 text-xs font-medium text-slate-800">
+                          <button
+                            type="button"
+                            onClick={() => onSelectParticipant(p)}
+                            className="text-indigo-600 hover:underline"
+                          >
+                            {p.name}
+                          </button>
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.employeeId ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.email ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.location ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.currency ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-right text-slate-700">
+                          {Array.isArray(p.contracts) && p.contracts.length > 0
+                            ? `${p.contracts.length} contract${
+                                p.contracts.length > 1 ? "s" : ""
+                              }`
+                            : "No contracts"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
                   {participants.length === 0 && (
                     <tr>
                       <td
