@@ -22,6 +22,21 @@ type Participant = {
   [key: string]: any;
 };
 
+type EnrollmentRecord = {
+  id: string;
+  participantId: string;
+  participantName: string;
+  employeeId?: string;
+  email?: string;
+  entity?: string;
+  country?: string;
+  grantName: string;
+  amount: number;
+  appliedAt: string; // ISO datetime string
+  inviteOpen: string;
+  inviteClose: string;
+};
+
 const formatMoney = (n: number, ccy = "GBP") =>
   new Intl.NumberFormat(undefined, {
     style: "currency",
@@ -280,6 +295,10 @@ const [participants, setParticipants] = useState<Participant[]>([
     ],
   },
 ]);
+
+  const [enrolmentRecords, setEnrolmentRecords] = useState<EnrollmentRecord[]>(
+  []
+);
   
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
   const [configTab, setConfigTab] = useState<"plans" | "participants">("plans");
@@ -536,12 +555,49 @@ const [participants, setParticipants] = useState<Participant[]>([
     });
   };
 
-  const handleConfirmEnrolment = () => {
-    if (!activeInvite || !enrolment) return;
+    const handleConfirmEnrolment = () => {
+    if (!activeInvite || !enrolment || !selectedParticipant) return;
 
+    const appliedAt = new Date().toISOString();
+
+    // Update local enrolment state for the panel
     setEnrolment((prev) =>
       prev ? { ...prev, hasApplied: true } : prev
     );
+
+    // Log / update the enrolment record for reporting
+    setEnrolmentRecords((prev) => {
+      const id = `${selectedParticipant.id}-${activeInvite.grantName}`;
+
+      const base: EnrollmentRecord = {
+        id,
+        participantId: selectedParticipant.id,
+        participantName: selectedParticipant.name,
+        employeeId: selectedParticipant.employeeId,
+        email: selectedParticipant.email,
+        entity: selectedParticipant.entity,
+        country: selectedParticipant.country,
+        grantName: activeInvite.grantName,
+        amount: enrolment.amount,
+        appliedAt,
+        inviteOpen: activeInvite.inviteOpen,
+        inviteClose: activeInvite.inviteClose,
+      };
+
+      const existingIndex = prev.findIndex(
+        (r) =>
+          r.participantId === selectedParticipant.id &&
+          r.grantName === activeInvite.grantName
+      );
+
+      if (existingIndex >= 0) {
+        const clone = [...prev];
+        clone[existingIndex] = { ...clone[existingIndex], ...base };
+        return clone;
+      }
+
+      return [...prev, base];
+    });
   };
 
     const canConfirmEnrolment =
@@ -1099,6 +1155,7 @@ const [participants, setParticipants] = useState<Participant[]>([
                 plans={enriched}
                 planConfigs={planConfigs}
                 participants={participants}
+                enrolments={enrolmentRecords}
               />
             )}
             
@@ -1163,18 +1220,22 @@ const [participants, setParticipants] = useState<Participant[]>([
     </div>
   );
 }
-type ReportKey = "summary" | "missed" | "maturity" | "cap";
+type ReportKey = "summary" | "enrolment" | "missed" | "maturity" | "cap";
 
 function SAYEReportsView({
   plans,
   planConfigs,
   participants,
+  enrolments,
 }: {
   plans: any[];
   planConfigs: PlanConfig[];
   participants: Participant[];
+  enrolments: EnrollmentRecord[];
 }) {
   const [activeReport, setActiveReport] = useState<ReportKey>("summary");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
 
   const totalMonthly = plans.reduce(
     (sum: number, p: any) => sum + (p.monthlyContribution || 0),
@@ -1278,6 +1339,74 @@ function SAYEReportsView({
     URL.revokeObjectURL(url);
   };
 
+  // 🔎 Enrolment report period filter
+  const filteredEnrolments = useMemo(() => {
+    if (!enrolments || enrolments.length === 0) return [];
+
+    return enrolments.filter((r) => {
+      const applied = new Date(r.appliedAt);
+
+      if (fromDate) {
+        const from = new Date(fromDate);
+        if (applied < from) return false;
+      }
+
+      if (toDate) {
+        const to = new Date(toDate);
+        to.setHours(23, 59, 59, 999); // include whole end date
+        if (applied > to) return false;
+      }
+
+      return true;
+    });
+  }, [enrolments, fromDate, toDate]);
+
+  const exportEnrolmentsCsv = () => {
+    if (!filteredEnrolments.length) {
+      alert("No enrolments in this period.");
+      return;
+    }
+
+    const headers: (keyof EnrollmentRecord)[] = [
+      "participantId",
+      "participantName",
+      "employeeId",
+      "email",
+      "entity",
+      "country",
+      "grantName",
+      "amount",
+      "appliedAt",
+      "inviteOpen",
+      "inviteClose",
+    ];
+
+    const escape = (value: unknown): string => {
+      if (value === null || value === undefined) return "";
+      const str = String(value);
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const lines = [
+      headers.map(escape).join(","),
+      ...filteredEnrolments.map((row) =>
+        headers.map((h) => escape(row[h])).join(",")
+      ),
+    ];
+
+    const blob = new Blob([lines.join("\r\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "saye-enrolments.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4">
       <Card className="rounded-2xl border-none shadow-sm">
@@ -1318,6 +1447,13 @@ function SAYEReportsView({
               Active contracts
             </Button>
             <Button
+              variant={activeReport === "enrolment" ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setActiveReport("enrolment")}
+            >
+              Enrolments
+            </Button>
+            <Button
               variant={activeReport === "missed" ? "default" : "outline"}
               className="h-8 px-3 text-xs"
               onClick={() => setActiveReport("missed")}
@@ -1342,6 +1478,7 @@ function SAYEReportsView({
         </CardContent>
       </Card>
 
+      {/* SUMMARY */}
       {activeReport === "summary" && (
         <Card className="rounded-2xl border-none shadow-sm">
           <CardContent className="p-6">
@@ -1418,6 +1555,128 @@ function SAYEReportsView({
         </Card>
       )}
 
+      {/* ENROLMENTS */}
+      {activeReport === "enrolment" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6 space-y-4">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h2 className="text-sm font-semibold mb-1">
+                  Enrolment report
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Shows applications captured from the enrolment panel while an
+                  invite window is open.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-end gap-3 text-xs">
+                <div className="flex flex-col">
+                  <label className="text-[11px] text-slate-500 mb-1">
+                    From date
+                  </label>
+                  <input
+                    type="date"
+                    className="border border-slate-200 rounded-md px-2 py-1 text-xs"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-[11px] text-slate-500 mb-1">
+                    To date
+                  </label>
+                  <input
+                    type="date"
+                    className="border border-slate-200 rounded-md px-2 py-1 text-xs"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[11px] text-slate-500 mb-1">
+                    Enrolments in period
+                  </span>
+                  <span className="text-xs font-semibold">
+                    {filteredEnrolments.length}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  className="h-8 px-3 text-xs"
+                  variant="outline"
+                  onClick={exportEnrolmentsCsv}
+                >
+                  Export enrolments CSV
+                </Button>
+              </div>
+            </div>
+
+            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50/80">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Applied at
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Participant
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Employee ID
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Plan
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Amount (£/mo)
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Invite window
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {filteredEnrolments.map((r) => (
+                    <tr key={r.id}>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {new Date(r.appliedAt).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {r.participantName}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {r.employeeId || "—"}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {r.grantName}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {formatMoney(r.amount)}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {new Date(r.inviteOpen).toLocaleDateString()} –{" "}
+                        {new Date(r.inviteClose).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredEnrolments.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-3 py-4 text-xs text-slate-500 text-center"
+                      >
+                        No enrolments captured yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* MISSED */}
       {activeReport === "missed" && (
         <Card className="rounded-2xl border-none shadow-sm">
           <CardContent className="p-6">
@@ -1479,6 +1738,7 @@ function SAYEReportsView({
         </Card>
       )}
 
+      {/* MATURITY */}
       {activeReport === "maturity" && (
         <Card className="rounded-2xl border-none shadow-sm">
           <CardContent className="p-6">
@@ -1547,6 +1807,7 @@ function SAYEReportsView({
         </Card>
       )}
 
+      {/* CAP */}
       {activeReport === "cap" && (
         <Card className="rounded-2xl border-none shadow-sm">
           <CardContent className="p-6 space-y-4">
