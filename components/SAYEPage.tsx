@@ -296,11 +296,15 @@ const [participants, setParticipants] = useState<Participant[]>([
   },
 ]);
 
-  const [enrolmentRecords, setEnrolmentRecords] = useState<EnrollmentRecord[]>(
+const [enrolmentRecords, setEnrolmentRecords] = useState<EnrollmentRecord[]>(
   []
 );
-  
-  const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
+
+const [enrolmentConfirmation, setEnrolmentConfirmation] = useState<
+  { grantName: string; amount: number; contractStart: string } | null
+>(null);
+
+const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
   const [configTab, setConfigTab] = useState<"plans" | "participants">("plans");
 
   const [modal, setModal] = useState<{
@@ -560,50 +564,60 @@ const [participants, setParticipants] = useState<Participant[]>([
     });
   };
 
-    const handleConfirmEnrolment = () => {
-    if (!activeInvite || !enrolment || !selectedParticipant) return;
+const handleConfirmEnrolment = () => {
+  if (!activeInvite || !enrolment || !selectedParticipant) return;
 
-    const appliedAt = new Date().toISOString();
+  const appliedAt = new Date().toISOString();
 
-    // Update local enrolment state for the panel
-    setEnrolment((prev) =>
-      prev ? { ...prev, hasApplied: true } : prev
+  // Update local enrolment state for the panel
+  setEnrolment((prev) =>
+    prev ? { ...prev, hasApplied: true } : prev
+  );
+
+  // Log / update the enrolment record for reporting
+  setEnrolmentRecords((prev) => {
+    const id = `${selectedParticipant.id}-${activeInvite.grantName}`;
+
+    const base: EnrollmentRecord = {
+      id,
+      participantId: selectedParticipant.id,
+      participantName: selectedParticipant.name,
+      employeeId: selectedParticipant.employeeId,
+      email: selectedParticipant.email,
+      entity: selectedParticipant.entity,
+      country: selectedParticipant.country,
+      grantName: activeInvite.grantName,
+      amount: enrolment.amount,
+      appliedAt,
+      inviteOpen: activeInvite.inviteOpen,
+      inviteClose: activeInvite.inviteClose,
+    };
+
+    const existingIndex = prev.findIndex(
+      (r) =>
+        r.participantId === selectedParticipant.id &&
+        r.grantName === activeInvite.grantName
     );
 
-    // Log / update the enrolment record for reporting
-    setEnrolmentRecords((prev) => {
-      const id = `${selectedParticipant.id}-${activeInvite.grantName}`;
+    if (existingIndex >= 0) {
+      const clone = [...prev];
+      clone[existingIndex] = { ...clone[existingIndex], ...base };
+      return clone;
+    }
 
-      const base: EnrollmentRecord = {
-        id,
-        participantId: selectedParticipant.id,
-        participantName: selectedParticipant.name,
-        employeeId: selectedParticipant.employeeId,
-        email: selectedParticipant.email,
-        entity: selectedParticipant.entity,
-        country: selectedParticipant.country,
-        grantName: activeInvite.grantName,
-        amount: enrolment.amount,
-        appliedAt,
-        inviteOpen: activeInvite.inviteOpen,
-        inviteClose: activeInvite.inviteClose,
-      };
+    return [...prev, base];
+  });
 
-      const existingIndex = prev.findIndex(
-        (r) =>
-          r.participantId === selectedParticipant.id &&
-          r.grantName === activeInvite.grantName
-      );
+  // 🔽 Close the enrolment dropdown
+  setShowInvitePanel(false);
 
-      if (existingIndex >= 0) {
-        const clone = [...prev];
-        clone[existingIndex] = { ...clone[existingIndex], ...base };
-        return clone;
-      }
-
-      return [...prev, base];
-    });
-  };
+  // ✅ Show confirmation popup
+  setEnrolmentConfirmation({
+    grantName: activeInvite.grantName,
+    amount: enrolment.amount,
+    contractStart: activeInvite.contractStart,
+  });
+};
 
     const canConfirmEnrolment =
     !!activeInvite &&
@@ -613,11 +627,59 @@ const [participants, setParticipants] = useState<Participant[]>([
     enrolment.amount >= activeInvite.minMonthly &&
     enrolment.amount <= activeInvite.maxMonthly;
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
-      <div className="mx-auto max-w-7xl px-4 pt-6 pb-10">
-        <div className="flex gap-6">
-          {/* Sidebar */}
+return (
+  <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+    {enrolmentConfirmation && (
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
+        <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+          <h2 className="text-sm font-semibold text-slate-900 mb-2">
+            Enrolment submitted
+          </h2>
+
+          <p className="text-xs text-slate-600 mb-3">
+            You&apos;ve applied to save{" "}
+            <span className="font-semibold">
+              {formatMoney(enrolmentConfirmation.amount)}
+            </span>{" "}
+            per month into{" "}
+            <span className="font-semibold">
+              {enrolmentConfirmation.grantName}
+            </span>
+            .
+          </p>
+
+          <p className="text-xs text-slate-600 mb-3">
+            Your contract is scheduled to start on{" "}
+            <span className="font-semibold">
+              {new Date(
+                enrolmentConfirmation.contractStart
+              ).toLocaleDateString()}
+            </span>
+            .
+          </p>
+
+          <p className="text-[11px] text-slate-500 mb-4">
+            You can amend your savings amount at any time while the invite
+            window is open. After the window closes, your amount is locked in
+            and any changes must follow the SAYE plan rules.
+          </p>
+
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              className="h-8 px-4 text-xs"
+              onClick={() => setEnrolmentConfirmation(null)}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    <div className="mx-auto max-w-7xl px-4 pt-6 pb-10">
+      <div className="flex gap-6">
+        {/* Sidebar... */}
           <aside className="w-60 shrink-0">
             <nav className="sticky top-6 space-y-1 text-sm">
               {["Dashboard", "My portfolio", "My orders", "Documents", "Simulations"].map(
