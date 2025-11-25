@@ -1101,7 +1101,7 @@ const [participants, setParticipants] = useState<Participant[]>([
                 participants={participants}
               />
             )}
-
+            
             {view === "imports" && (
               <SAYEImportsView planConfigs={planConfigs} />
             )}
@@ -1174,7 +1174,6 @@ function SAYEReportsView({
   planConfigs: PlanConfig[];
   participants: Participant[];
 }) {
-
   const [activeReport, setActiveReport] = useState<ReportKey>("summary");
 
   const totalMonthly = plans.reduce(
@@ -1183,10 +1182,10 @@ function SAYEReportsView({
   );
   const CAP = 500;
 
-    // Flatten all participant contracts into a single report array
+  // 🔄 Flatten all participant contracts into a single dataset
   const allContracts = useMemo(() => {
-    const livePlansByName = new Map(
-      planConfigs.map((p) => [p.grantName, p as any])
+    const configsByGrantName = new Map(
+      planConfigs.map((pc) => [pc.grantName, pc])
     );
 
     const rows: any[] = [];
@@ -1198,13 +1197,12 @@ function SAYEReportsView({
 
       contracts.forEach((contract: any) => {
         const monthly = contract.monthlyContribution ?? 0;
+        if (!monthly) return; // skip non-contributors
 
-        // Skip non-contributors (0 monthly)
-        if (!monthly) return;
-
-        const plan = livePlansByName.get(contract.grantName);
-        const enrichedPlan =
-          plans.find((p: any) => p.grantName === contract.grantName) || plan;
+        const cfg = configsByGrantName.get(contract.grantName);
+        const enriched = plans.find(
+          (p: any) => p.grantName === contract.grantName
+        );
 
         rows.push({
           // Participant info
@@ -1215,30 +1213,30 @@ function SAYEReportsView({
           entity: participant.entity,
           country: participant.country,
           location: participant.location,
-          currency: participant.currency || "GBP",
+          currency: participant.currency ?? "GBP",
 
-          // Contract info
+          // Contract / plan link
           grantName: contract.grantName,
           monthlyContribution: monthly,
           missedPayments: contract.missedPayments ?? 0,
 
-          // Plan config info
-          planStatus: plan?.status,
-          termYears: plan?.termYears,
-          optionPrice: plan?.optionPrice,
-          bonusRate: plan?.bonusRate,
-          grantDate: plan?.grantDate,
-          contractStart: plan?.contractStart,
-          termMonths: plan?.termMonths,
+          // Config info
+          planStatus: cfg?.status,
+          termYears: cfg?.termYears,
+          optionPrice: cfg?.optionPrice,
+          bonusRate: cfg?.bonusRate,
+          grantDate: cfg?.grantDate,
+          contractStart: cfg?.contractStart,
+          termMonths: cfg?.termMonths,
 
-          // Enriched metrics (where available)
-          maturityDate: enrichedPlan?.maturityDate
-            ? enrichedPlan.maturityDate.toISOString().slice(0, 10)
+          // Enriched metrics
+          maturityDate: enriched?.maturityDate
+            ? enriched.maturityDate.toISOString().slice(0, 10)
             : undefined,
-          savingsAmount: enrichedPlan?.savingsAmount,
-          optionsGranted: enrichedPlan?.optionsGranted,
-          maturityValueAt5pc: enrichedPlan?.maturityValueAt5pc,
-          estimatedGain: enrichedPlan?.estimatedGain,
+          savingsAmount: enriched?.savingsAmount,
+          optionsGranted: enriched?.optionsGranted,
+          maturityValueAt5pc: enriched?.maturityValueAt5pc,
+          estimatedGain: enriched?.estimatedGain,
         });
       });
     });
@@ -1248,7 +1246,7 @@ function SAYEReportsView({
 
   const exportToCsv = () => {
     if (!allContracts.length) {
-      alert("No data to export yet.");
+      alert("No data to export.");
       return;
     }
 
@@ -1282,6 +1280,8 @@ function SAYEReportsView({
 
   return (
     <div className="space-y-4">
+      <Card className="rounded-2xl border-none shadow-sm">
+        <CardContent className="p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-lg font-semibold tracking-tight">
@@ -1482,9 +1482,7 @@ function SAYEReportsView({
       {activeReport === "maturity" && (
         <Card className="rounded-2xl border-none shadow-sm">
           <CardContent className="p-6">
-            <h2 className="text-sm font-semibold mb-3">
-              Maturity calendar (live plans)
-            </h2>
+            <h2 className="text-sm font-semibold mb-3">Maturity calendar</h2>
             <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
               <table className="min-w-full text-xs">
                 <thead className="bg-slate-50/80">
@@ -1493,7 +1491,7 @@ function SAYEReportsView({
                       Plan
                     </th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Maturity date
+                      Maturity
                     </th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-500">
                       Term
@@ -1502,7 +1500,7 @@ function SAYEReportsView({
                       £/mo
                     </th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-500">
-                      Saved (to date)
+                      Saved
                     </th>
                   </tr>
                 </thead>
@@ -1552,20 +1550,24 @@ function SAYEReportsView({
       {activeReport === "cap" && (
         <Card className="rounded-2xl border-none shadow-sm">
           <CardContent className="p-6 space-y-4">
-            <h2 className="text-sm font-semibold">
-              Contribution cap usage (per employee)
-            </h2>
+            <h2 className="text-sm font-semibold">Contribution cap usage</h2>
             <p className="text-xs text-slate-500">
-              This demo assumes a £{CAP.toFixed(0)} per-month SAYE cap per
-              employee across all contracts.
+              Illustration of how current monthly contributions compare to the
+              £500/month SAYE cap.
             </p>
-            <div className="flex items-center justify-between text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <div className="text-xs text-slate-500 mb-1">
-                  Total current monthly across live plans
+                  Total monthly contributions
                 </div>
                 <div className="text-base font-semibold">
                   {formatMoney(totalMonthly)}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">Cap</div>
+                <div className="text-base font-semibold">
+                  {formatMoney(CAP)}
                 </div>
               </div>
               <div>
