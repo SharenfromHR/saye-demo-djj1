@@ -74,7 +74,7 @@ interface EnrollmentState {
 export default function SAYEPage() {
 const [view, setView] = useState<
   "participant" | "config" | "reports" | "imports"
->("participant");
+>("config");
   const [sayeMenuOpen, setSayeMenuOpen] = useState(true);
   const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
   const [planConfigs, setPlanConfigs] = useState<PlanConfig[]>([
@@ -586,17 +586,6 @@ const [participants, setParticipants] = useState<Participant[]>([
   </button>
   {sayeMenuOpen && (
     <div className="ml-6 space-y-1">
-      <button
-        type="button"
-        onClick={() => setView("participant")}
-        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs ${
-          view === "participant"
-            ? "bg-slate-900 text-white"
-            : "text-slate-600 hover:bg-white/70"
-        }`}
-      >
-        Participant view
-      </button>
       <button
         type="button"
         onClick={() => setView("config")}
