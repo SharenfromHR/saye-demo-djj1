@@ -1006,13 +1006,14 @@ function SAYEImportsView({
     0
   );
   
-  const CAP = 500;
-  const capClasses =
-    totalMonthly > CAP
-      ? "bg-rose-50 text-rose-700 ring-rose-200"
-      : totalMonthly >= CAP * 0.8
-      ? "bg-amber-50 text-amber-700 ring-amber-200"
-      : "bg-emerald-50 text-emerald-700 ring-emerald-200";
+const CAP = 500;
+
+const capClasses =
+  totalMonthly > CAP
+    ? "bg-rose-50 text-rose-700 ring-rose-200"
+    : totalMonthly >= CAP * 0.8
+    ? "bg-amber-50 text-amber-700 ring-amber-200"
+    : "bg-emerald-50 text-emerald-700 ring-emerald-200";
 
   const nowForInvites = new Date();
   const openInvites = planConfigs.filter((p) => {
