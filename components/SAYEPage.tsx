@@ -2442,21 +2442,207 @@ function SAYEReportsView({
   );
 }
 
-function SAYEImportsView({ planConfigs }: { planConfigs: PlanConfig[] }) {
+function SAYEImportsView({
+  planConfigs,
+  participants,
+  setParticipants,
+}: {
+  planConfigs: PlanConfig[];
+  participants: Participant[];
+  setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
+}) {
   const [selectedPlanIndex, setSelectedPlanIndex] = useState<number>(0);
   const [fileName, setFileName] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [rows, setRows] = useState<
+    {
+      employeeId: string;
+      amount: number;
+      planYear: number;
+      deductionDateIso: string;
+      deductionDateDisplay: string;
+    }[]
+  >([]);
+
+  const selectedPlan = planConfigs[selectedPlanIndex];
+
+  const parseDdMmYyyy = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const match = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (!match) return null;
+    const day = Number(match[1]);
+    const month = Number(match[2]) - 1; // 0-based
+    const year = Number(match[3]);
+    const d = new Date(year, month, day);
+    if (
+      d.getFullYear() !== year ||
+      d.getMonth() !== month ||
+      d.getDate() !== day
+    ) {
+      return null;
+    }
+    const iso = d.toISOString().slice(0, 10); // yyyy-mm-dd
+    return {
+      iso,
+      display: trimmed,
+    };
+  };
+
+  const parseCsv = (raw: string) => {
+    const lines = raw
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    if (lines.length <= 1) {
+      setStatus("No data rows found in the CSV.");
+      setRows([]);
+      return;
+    }
+
+    // Expect header: employeeId,amount,planYear,deductionDate
+    const header = lines[0].toLowerCase().replace(/\s+/g, "");
+    const expected = "employeeid,amount,planyear,deductiondate";
+    if (header !== expected) {
+      setStatus(
+        "Unexpected header. Expected: employeeId,amount,planYear,deductionDate (dd-mm-yyyy)"
+      );
+      setRows([]);
+      return;
+    }
+
+    const dataLines = lines.slice(1);
+    const parsed: {
+      employeeId: string;
+      amount: number;
+      planYear: number;
+      deductionDateIso: string;
+      deductionDateDisplay: string;
+    }[] = [];
+
+    for (const line of dataLines) {
+      const parts = line.split(",");
+      if (parts.length < 4) continue;
+
+      const employeeId = parts[0].trim();
+      const amountRaw = parts[1].trim();
+      const planYearRaw = parts[2].trim();
+      const dateRaw = parts[3].trim();
+
+      if (!employeeId) continue;
+
+      const amount = Number(amountRaw);
+      const planYear = Number(planYearRaw);
+      const parsedDate = parseDdMmYyyy(dateRaw);
+
+      if (!Number.isFinite(amount) || !Number.isFinite(planYear) || !parsedDate) {
+        continue;
+      }
+
+      parsed.push({
+        employeeId,
+        amount,
+        planYear,
+        deductionDateIso: parsedDate.iso,
+        deductionDateDisplay: parsedDate.display,
+      });
+    }
+
+    setRows(parsed);
+    setStatus(
+      `Parsed ${parsed.length} row(s). Ready to apply to participants for ${selectedPlan?.grantName}.`
+    );
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
-    setStatus(
-      "File loaded into the demo UI. In a real system this would be validated and queued for import."
-    );
+    setStatus("Reading file...");
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = String(ev.target?.result ?? "");
+      parseCsv(text);
+    };
+    reader.onerror = () => {
+      setStatus("Failed to read file.");
+    };
+    reader.readAsText(file);
   };
 
-  const selectedPlan = planConfigs[selectedPlanIndex];
+  const handleImport = () => {
+    if (!rows.length) {
+      setStatus("No rows parsed to import.");
+      return;
+    }
+    if (!selectedPlan) {
+      setStatus("No plan selected.");
+      return;
+    }
+
+    const grantName = selectedPlan.grantName;
+    let updatedParticipants = 0;
+    let updatedContracts = 0;
+
+    const nextParticipants = participants.map((p) => {
+      const matchingRows = rows.filter((r) => r.employeeId === p.employeeId);
+      if (!matchingRows.length) return p;
+
+      updatedParticipants++;
+
+      const existingContracts = Array.isArray(p.contracts) ? [...p.contracts] : [];
+      let changed = false;
+
+      const contractIndex = existingContracts.findIndex(
+        (c: any) => c.grantName === grantName
+      );
+
+      const ensureHistoryArray = (contract: any) => {
+        if (!Array.isArray(contract.importedHistory)) {
+          contract.importedHistory = [];
+        }
+      };
+
+      const toHistoryEntries = matchingRows.map((r) => ({
+        planYear: r.planYear,
+        deductionDate: r.deductionDateIso,
+        deductionDateDisplay: r.deductionDateDisplay,
+        amount: r.amount,
+      }));
+
+      if (contractIndex === -1) {
+        // No contract yet for this plan – create one
+        const newContract: any = {
+          grantName,
+          monthlyContribution: selectedPlan.monthlyContribution ?? 0,
+          missedPayments: 0,
+          importedHistory: toHistoryEntries,
+        };
+        existingContracts.push(newContract);
+        changed = true;
+        updatedContracts++;
+      } else {
+        const existing = { ...existingContracts[contractIndex] };
+        ensureHistoryArray(existing);
+        existing.importedHistory = [...existing.importedHistory, ...toHistoryEntries];
+        existingContracts[contractIndex] = existing;
+        changed = true;
+        updatedContracts++;
+      }
+
+      if (!changed) return p;
+      return {
+        ...p,
+        contracts: existingContracts,
+      };
+    });
+
+    setParticipants(nextParticipants);
+    setStatus(
+      `Import applied. Updated ${updatedParticipants} participant(s) and ${updatedContracts} contract(s).`
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -2468,99 +2654,147 @@ function SAYEImportsView({ planConfigs }: { planConfigs: PlanConfig[] }) {
                 SAYE imports
               </h1>
               <p className="text-xs text-slate-500 mt-1">
-                Load contribution files against a specific SAYE plan to update
-                savings positions.
+                Load contribution files and apply them to participant contracts
+                for this demo.
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">
-                Target SAYE plan
-              </label>
-              <select
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                value={selectedPlanIndex}
-                onChange={(e) =>
-                  setSelectedPlanIndex(Number(e.target.value) || 0)
-                }
-              >
-                {planConfigs.map((p, i) => (
-                  <option key={i} value={i}>
-                    {p.grantName} ({p.termYears}y, opt px {formatMoney(
-                      p.optionPrice
-                    )}
-                    )
-                  </option>
-                ))}
-              </select>
-              {selectedPlan && (
-                <p className="text-[11px] text-slate-500">
-                  Invite window:{" "}
-                  {new Date(selectedPlan.inviteOpen).toLocaleString()} –{" "}
-                  {new Date(selectedPlan.inviteClose).toLocaleString()}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">
-                Contribution file (.csv)
-              </label>
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleFileChange}
-                className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border file:border-slate-300 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-slate-50"
-              />
-              <p className="text-[11px] text-slate-500">
-                Expected columns (demo): employee ID, name, payroll month,
-                amount, currency.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            <div className="text-[11px] text-slate-500">
-              This is a front-end demo only – no data is stored or sent
-              anywhere.
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="h-8 px-3 text-xs"
-                disabled={!fileName}
-                onClick={() =>
-                  setStatus(
-                    "Validation complete (demo). No issues detected in the sample file."
-                  )
-                }
-              >
-                Validate file
-              </Button>
-              <Button
-                className="h-8 px-3 text-xs"
-                disabled={!fileName}
-                onClick={() =>
-                  setStatus(
-                    "Import simulated. In a real system this would push contributions into the plan ledger."
-                  )
-                }
-              >
-                Import contributions
-              </Button>
-            </div>
-          </div>
-
-          {status && (
-            <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
-              <div className="font-medium mb-0.5">
-                {fileName ? fileName : "No file selected"}
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+            <div className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-slate-600">
+                  Plan
+                </label>
+                <select
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
+                  value={selectedPlanIndex}
+                  onChange={(e) =>
+                    setSelectedPlanIndex(Number(e.target.value) || 0)
+                  }
+                >
+                  {planConfigs.map((pc, idx) => (
+                    <option key={pc.grantName} value={idx}>
+                      {pc.grantName}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div>{status}</div>
+
+              <div className="space-y-2">
+                <label className="text-[11px] font-medium text-slate-600">
+                  Contribution file (.csv)
+                </label>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileChange}
+                  className="block w-full text-xs text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-slate-800"
+                />
+                {fileName && (
+                  <div className="text-[11px] text-slate-500">
+                    Loaded file: <span className="font-medium">{fileName}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1 text-[11px] text-slate-500">
+                <div className="font-semibold">Expected CSV format</div>
+                <div>Header row (exactly):</div>
+                <pre className="bg-slate-50 rounded-lg px-2 py-1 text-[10px] overflow-x-auto">
+                  employeeId,amount,planYear,deductionDate
+                </pre>
+                <div>Example row:</div>
+                <pre className="bg-slate-50 rounded-lg px-2 py-1 text-[10px] overflow-x-auto">
+                  100123,250,2024,10-03-2024
+                </pre>
+                <div className="mt-1">
+                  Date must be in <strong>dd-mm-yyyy</strong> format.
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  className="h-8 px-3 text-xs"
+                  variant="default"
+                  onClick={handleImport}
+                  disabled={!rows.length}
+                >
+                  Apply import
+                </Button>
+                {status && (
+                  <div className="text-[11px] text-slate-500 flex-1">
+                    {status}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="font-semibold text-slate-700">
+                  Parsed rows preview
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  {rows.length} row(s)
+                </div>
+              </div>
+              <div className="overflow-auto rounded-xl ring-1 ring-slate-100 max-h-64">
+                <table className="min-w-full text-[11px]">
+                  <thead className="bg-slate-50/80">
+                    <tr>
+                      <th className="px-2 py-1 text-left font-semibold text-slate-500">
+                        Employee ID
+                      </th>
+                      <th className="px-2 py-1 text-right font-semibold text-slate-500">
+                        Amount
+                      </th>
+                      <th className="px-2 py-1 text-center font-semibold text-slate-500">
+                        Plan year
+                      </th>
+                      <th className="px-2 py-1 text-center font-semibold text-slate-500">
+                        Deduction date
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {rows.map((r, idx) => (
+                      <tr key={idx}>
+                        <td className="px-2 py-1 text-slate-700">
+                          {r.employeeId}
+                        </td>
+                        <td className="px-2 py-1 text-right text-slate-700">
+                          {r.amount.toFixed(2)}
+                        </td>
+                        <td className="px-2 py-1 text-center text-slate-700">
+                          {r.planYear}
+                        </td>
+                        <td className="px-2 py-1 text-center text-slate-700">
+                          {r.deductionDateDisplay}
+                        </td>
+                      </tr>
+                    ))}
+                    {!rows.length && (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="px-2 py-4 text-center text-slate-400"
+                        >
+                          No rows parsed yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                This demo stores imported rows on the matching participant&apos;s
+                contract for <strong>{selectedPlan?.grantName}</strong>. We can
+                later wire this into the detailed history view.
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
