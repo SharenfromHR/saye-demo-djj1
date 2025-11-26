@@ -88,11 +88,8 @@ function buildScheduleForPlan(p: PlanScheduleSource) {
       month: "long",
       year: "numeric",
     });
-    const date = new Date(
-      d.getFullYear(),
-      d.getMonth(),
-      10
-    ).toLocaleDateString();
+const date = formatDdMmYyyy(new Date(d.getFullYear(), d.getMonth(), 10));
+
     const key = `${d.getFullYear()}:${d.getMonth()}`;
     const isMissed = missedSet.has(key);
     history.push({
@@ -133,7 +130,7 @@ function buildScheduleForPlan(p: PlanScheduleSource) {
         month: "long",
         year: "numeric",
       }),
-      date: d.toLocaleDateString(),
+      date: formatDdMmYyyy(d),
       amount: p.monthlyContribution,
     });
   }
@@ -555,6 +552,33 @@ function SAYEImportsView({
     unmatched: number;
   } | null>(null);
 
+    // --- DATE HELPERS (dd-mm-yyyy) ---
+  const parseDdMmYyyy = (input: string): Date | null => {
+    const trimmed = input.trim();
+    const match = /^(\d{2})[-/](\d{2})[-/](\d{4})$/.exec(trimmed);
+    if (!match) return null;
+    const [, dd, mm, yyyy] = match;
+    const day = Number(dd);
+    const month = Number(mm) - 1;
+    const year = Number(yyyy);
+    const d = new Date(year, month, day);
+    if (
+      d.getFullYear() !== year ||
+      d.getMonth() !== month ||
+      d.getDate() !== day
+    ) {
+      return null;
+    }
+    return d;
+  };
+
+  const formatDdMmYyyy = (date: Date): string => {
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const yyyy = date.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  };
+
   const selectedPlan = planConfigs[selectedPlanIndex];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -574,7 +598,14 @@ function SAYEImportsView({
   };
 
   const parseContributionCsv = (raw: string) => {
-    const rows: { employeeId: string; amount: number }[] = [];
+    type Parsed = {
+      employeeId: string;
+      amount: number;
+      planYear: string;
+      deductionDateIso: string; // stored yyyy-mm-dd
+    };
+
+    const rows: Parsed[] = [];
     let error: string | null = null;
 
     const lines = raw
@@ -582,9 +613,59 @@ function SAYEImportsView({
       .map((l) => l.trim())
       .filter((l) => l.length > 0);
 
-    if (!lines.length) {
+    if (lines.length < 2) {
       return { rows, error: "File appears to be empty." };
     }
+
+    const headerCells = lines[0]
+      .split(",")
+      .map((h) => h.trim().toLowerCase());
+
+    const empIdx = headerCells.indexOf("employeeid");
+    const amtIdx = headerCells.indexOf("amount");
+    const yearIdx = headerCells.indexOf("planyear");
+    const dateIdx = headerCells.indexOf("deductiondate");
+
+    if (empIdx === -1 || amtIdx === -1 || yearIdx === -1 || dateIdx === -1) {
+      return {
+        rows,
+        error:
+          `CSV must include: employeeId, amount, planYear, deductionDate (dd-mm-yyyy). Found headers: ${headerCells.join(", ")}`,
+      };
+    }
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      const cells = line.split(",");
+
+      const employeeId = cells[empIdx]?.trim();
+      const rawAmount = cells[amtIdx]?.trim();
+      const planYear = cells[yearIdx]?.trim();
+      const rawDate = cells[dateIdx]?.trim();
+
+      if (!employeeId || !rawAmount || !planYear || !rawDate) continue;
+
+      const amount = Number(rawAmount);
+      if (!isFinite(amount) || amount <= 0) continue;
+
+      const parsed = parseDdMmYyyy(rawDate);
+      if (!parsed) continue;
+
+      rows.push({
+        employeeId,
+        amount,
+        planYear,
+        deductionDateIso: parsed.toISOString().slice(0, 10),
+      });
+    }
+
+    if (!rows.length) {
+      error = "No valid rows found after parsing.";
+    }
+
+    return { rows, error };
+  };
 
     const headerCells = lines[0]
       .split(",")
@@ -649,20 +730,99 @@ function SAYEImportsView({
       return;
     }
 
-    setStatus(`Validation complete. ${rows.length} row(s) ready to import.`);
-    setImportSummary({
-      totalRows: rows.length,
-      updated: 0,
-      unmatched: 0,
-    });
-  };
-
   const handleImport = () => {
     if (!fileContent) {
       setStatus("Please choose and validate a CSV file first.");
       setImportSummary(null);
       return;
     }
+
+    const targetPlan = planConfigs[selectedPlanIndex];
+    if (!targetPlan) {
+      setStatus("Please select a valid SAYE plan.");
+      setImportSummary(null);
+      return;
+    }
+
+    const { rows, error } = parseContributionCsv(fileContent);
+    if (error) {
+      setStatus(error);
+      setImportSummary(null);
+      return;
+    }
+
+    if (!rows.length) {
+      setStatus("No valid rows to import.");
+      setImportSummary(null);
+      return;
+    }
+
+    let updated = 0;
+    const matchedIds = new Set<string>();
+
+    const newParticipants = participants.map((p) => {
+      const pEmp = p.employeeId?.trim();
+      if (!pEmp) return p;
+
+      const matches = rows.filter((r) => r.employeeId === pEmp);
+      if (!matches.length) return p;
+
+      matchedIds.add(pEmp);
+      updated++;
+
+      const existingContracts = Array.isArray(p.contracts)
+        ? p.contracts
+        : [];
+
+      const existingForPlan = existingContracts.find(
+        (c) => c.grantName === targetPlan.grantName
+      );
+
+      const previousHistory = Array.isArray(existingForPlan?.importedHistory)
+        ? existingForPlan.importedHistory
+        : [];
+
+      const updatedHistory = [
+        ...previousHistory,
+        ...matches.map((m) => ({
+          planYear: m.planYear,
+          deductionDateIso: m.deductionDateIso,
+          amount: m.amount,
+        })),
+      ];
+
+      const withoutThis = existingContracts.filter(
+        (c) => c.grantName !== targetPlan.grantName
+      );
+
+      const newContract = {
+        grantName: targetPlan.grantName,
+        monthlyContribution:
+          matches[0].amount ||
+          existingForPlan?.monthlyContribution ||
+          targetPlan.monthlyContribution,
+        missedPayments: existingForPlan?.missedPayments ?? 0,
+        importedHistory: updatedHistory,
+      };
+
+      return {
+        ...p,
+        contracts: [...withoutThis, newContract],
+      };
+    });
+
+    const unmatched = rows.filter((r) => !matchedIds.has(r.employeeId)).length;
+
+    setParticipants(newParticipants);
+    setStatus(
+      `Import complete. ${updated} participant(s) updated. ${unmatched} row(s) unmatched.`
+    );
+    setImportSummary({
+      totalRows: rows.length,
+      updated,
+      unmatched,
+    });
+  };
 
     const targetPlan = planConfigs[selectedPlanIndex];
     if (!targetPlan) {
