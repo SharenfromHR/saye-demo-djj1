@@ -686,11 +686,13 @@ function SAYEImportsView({
       const amount = Number(rawAmt);
       if (!isFinite(amount) || amount <= 0) continue;
 
-      const iso = parseDdMmYyyy(rawDate);
-      if (!iso) {
+      const parsedDate = parseDdMmYyyy(rawDate);
+      if (!parsedDate) {
         error = `Row ${i + 1}: deductionDate must be dd-mm-yyyy.`;
         return { rows, error };
       }
+
+      const iso = parsedDate.toISOString().slice(0, 10); // "yyyy-mm-dd"
 
       rows.push({
         employeeId,
