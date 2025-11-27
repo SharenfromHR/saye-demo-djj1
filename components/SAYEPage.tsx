@@ -1991,6 +1991,7 @@ const exportCustomCsv = () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    };
     
     return (
       <div className="space-y-4">
