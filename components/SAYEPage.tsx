@@ -1768,7 +1768,7 @@ return (
     </div>
   );
 }
-type ReportKey = "summary" | "enrolment" | "missed" | "maturity" | "cap";
+type ReportKey = "summary" | "enrolment" | "missed" | "maturity" | "cap" | "custom";
 
 function SAYEReportsView({
   plans,
@@ -1782,6 +1782,7 @@ function SAYEReportsView({
   enrolments: EnrollmentRecord[];
 }) {
   const [activeReport, setActiveReport] = useState<ReportKey>("summary");
+  const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
 
@@ -1853,6 +1854,42 @@ function SAYEReportsView({
     return rows;
   }, [participants, planConfigs, plans]);
 
+const toggleField = (field: string) => {
+  setSelectedFields((prev) =>
+    prev.includes(field)
+      ? prev.filter((f) => f !== field)
+      : [...prev, field]
+  );
+};
+
+const exportCustomCsv = () => {
+  if (!selectedFields.length) {
+    alert("Select at least one column.");
+    return;
+  }
+
+  const escape = (v: any) => {
+    if (v === null || v === undefined) return "";
+    const s = String(v);
+    return `"${s.replace(/"/g, '""')}"`;
+  };
+
+  const lines = [
+    selectedFields.map(escape).join(","),
+    ...allContracts.map((row: any) =>
+      selectedFields.map((f) => escape(row[f])).join(",")
+    ),
+  ];
+
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "custom-report.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+};
+  
   const exportToCsv = () => {
     if (!allContracts.length) {
       alert("No data to export.");
@@ -2022,6 +2059,15 @@ function SAYEReportsView({
             >
               Contribution cap usage
             </Button>
+
+            <Button
+  variant={activeReport === "custom" ? "default" : "outline"}
+  className="h-8 px-3 text-xs"
+  onClick={() => setActiveReport("custom")}
+>
+  Custom report
+</Button>
+            
           </div>
         </CardContent>
       </Card>
@@ -2390,6 +2436,42 @@ function SAYEReportsView({
             </div>
           </CardContent>
         </Card>
+      {/* CUSTOM REPORT */}
+{activeReport === "custom" && (
+  <Card className="rounded-2xl border-none shadow-sm">
+    <CardContent className="p-6 space-y-4">
+      <h2 className="text-sm font-semibold mb-2">Custom report builder</h2>
+
+      <p className="text-xs text-slate-500">
+        Select the fields you want to include and export them to CSV.
+      </p>
+
+      <div className="flex flex-wrap gap-2">
+        {Object.keys(allContracts[0] || {}).map((field) => (
+          <button
+            key={field}
+            onClick={() => toggleField(field)}
+            className={`px-3 py-1.5 rounded-lg text-xs border ${
+              selectedFields.includes(field)
+                ? "bg-slate-900 text-white border-slate-900"
+                : "bg-white text-slate-600 border-slate-200"
+            }`}
+          >
+            {field}
+          </button>
+        ))}
+      </div>
+
+      <Button
+        className="h-8 px-3 text-xs"
+        variant="outline"
+        onClick={exportCustomCsv}
+      >
+        Export custom CSV
+      </Button>
+    </CardContent>
+  </Card>
+)}
       )}
     </div>
   );
