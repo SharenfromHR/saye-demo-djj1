@@ -557,6 +557,30 @@ function SAYEImportsView({
 
   const selectedPlan = planConfigs[selectedPlanIndex];
 
+    const parseDdMmYyyy = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const match = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (!match) return null;
+
+    const day = Number(match[1]);
+    const month = Number(match[2]) - 1; // JS months 0–11
+    const year = Number(match[3]);
+
+    const d = new Date(year, month, day);
+
+    if (
+      d.getFullYear() !== year ||
+      d.getMonth() !== month ||
+      d.getDate() !== day
+    ) {
+      return null;
+    }
+
+    return d;
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -574,7 +598,12 @@ function SAYEImportsView({
   };
 
   const parseContributionCsv = (raw: string) => {
-    const rows: { employeeId: string; amount: number }[] = [];
+    const rows: {
+      employeeId: string;
+      amount: number;
+      planYear: string;
+      deductionDateIso: string;
+    }[] = [];
     let error: string | null = null;
 
     const lines = raw
@@ -601,35 +630,57 @@ function SAYEImportsView({
         "contribution",
       ].includes(h)
     );
+    const yearIdx = headerCells.findIndex((h) =>
+      ["planyear", "plan_year", "plan year", "year"].includes(h)
+    );
+    const dateIdx = headerCells.findIndex((h) =>
+      ["deductiondate", "deduction_date", "deduction date", "date"].includes(h)
+    );
 
-    if (empIdx === -1 || amtIdx === -1) {
+    if (empIdx === -1 || amtIdx === -1 || yearIdx === -1 || dateIdx === -1) {
       return {
         rows,
         error:
-          'Header row must include "employeeId" and "amount" (or equivalent headers like monthlyContribution).',
+          'Header row must include "employeeId", "amount", "planYear" and "deductionDate" (dd-mm-yyyy).',
       };
     }
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i];
       if (!line) continue;
+
       const cells = line.split(",");
-      if (cells.length <= Math.max(empIdx, amtIdx)) continue;
+      const maxIdx = Math.max(empIdx, amtIdx, yearIdx, dateIdx);
+      if (cells.length <= maxIdx) continue;
 
       const employeeId = cells[empIdx]?.trim();
       const rawAmt = cells[amtIdx]?.trim();
+      const planYear = cells[yearIdx]?.trim();
+      const rawDate = cells[dateIdx]?.trim();
 
-      if (!employeeId || !rawAmt) continue;
+      if (!employeeId || !rawAmt || !planYear || !rawDate) {
+        continue;
+      }
 
       const amount = Number(rawAmt);
       if (!isFinite(amount) || amount <= 0) continue;
 
-      rows.push({ employeeId, amount });
+      const parsedDate = parseDdMmYyyy(rawDate);
+      if (!parsedDate) {
+        error = `Row ${i + 1}: deductionDate must be in dd-mm-yyyy format.`;
+        return { rows, error };
+      }
+
+      rows.push({
+        employeeId,
+        amount,
+        planYear,
+        deductionDateIso: parsedDate.toISOString().slice(0, 10),
+      });
     }
 
-    if (!rows.length) {
-      error =
-        "No valid rows found. Check employee IDs and contribution amounts are populated.";
+    if (!rows.length && !error) {
+      error = "No valid rows found after parsing.";
     }
 
     return { rows, error };
