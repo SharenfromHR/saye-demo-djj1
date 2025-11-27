@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Info, ChevronDown } from "lucide-react";
-import SAYEConfigView from "./SAYEConfig";
+import SAYEConfig from "./SAYEConfig";
 
 type Participant = {
   id: string;
@@ -1661,23 +1661,7 @@ return (
                            </div>
             )}
 
-            {view === "config" && (
-              <SAYEConfigView
-                planConfigs={planConfigs}
-                setPlanConfigs={setPlanConfigs}
-                participants={participants}
-                setParticipants={setParticipants}
-                enrolments={enrolmentRecords}
-                tab={configTab}
-                setTab={setConfigTab}
-                onSelectParticipant={(p) => {
-                  setConfigTab("participants");
-                  setSelectedParticipant(p);
-                  setView("participant");
-                }}
-
-              />
-            )}
+            {view === "config" && <SAYEConfig />}
 
             {view === "reports" && (
               <SAYEReportsView
