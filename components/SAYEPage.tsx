@@ -669,24 +669,6 @@ function SAYEImportsView({
       };
     }
 
-    const parseDdMmYyyy = (value: string): string | null => {
-      const trimmed = value.trim();
-      const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(trimmed);
-      if (!m) return null;
-      const day = Number(m[1]);
-      const month = Number(m[2]) - 1;
-      const year = Number(m[3]);
-      const d = new Date(year, month, day);
-      if (
-        d.getFullYear() !== year ||
-        d.getMonth() !== month ||
-        d.getDate() !== day
-      ) {
-        return null;
-      }
-      return d.toISOString().slice(0, 10); // yyyy-mm-dd
-    };
-
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i];
       if (!line) continue;
