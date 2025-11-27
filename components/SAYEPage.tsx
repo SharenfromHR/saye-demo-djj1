@@ -2008,10 +2008,10 @@ const exportCustomCsv = () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  };
-
-  return (
-    <div className="space-y-4">
+    }
+    
+    return (
+      <div className="space-y-4">
       <Card className="rounded-2xl border-none shadow-sm">
         <CardContent className="p-6 space-y-4">
           <div className="flex items-center justify-between">
