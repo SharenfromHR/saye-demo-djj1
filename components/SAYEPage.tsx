@@ -1642,25 +1642,24 @@ return (
                                             <span>Date</span>
                                             <span className="text-right">Amount</span>
                                           </div>
-                                          {upcoming.map((row, i) => (
-                                            <div
-                                              key={i}
-                                              className="px-2 py-1.5 hover:bg-slate-50 [display:grid] [grid-template-columns:1fr_auto_auto] items-center gap-2"
-                                            >
-                                              <span className="text-sm text-slate-700">{row.label}</span>
-                                              <span className="text-xs text-slate-500 flex items-center justify-start gap-2">
-                                                {row.isLast && (
-                                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 ring-1 ring-slate-200 whitespace-nowrap">
-                                                    Last payment
-                                                  </span>
-                                                )}
-                                                {row.date}
-                                              </span>
-                                              <span className="text-sm font-medium tabular-nums text-right inline-flex items-center justify-end gap-2">
-                                                {formatMoney(row.amount)}
-                                              </span>
-                                            </div>
-                                          ))}
+                                            {upcoming.map((row, i) => (
+                                              <div
+                                                key={i}
+                                                className="px-2 py-1.5 hover:bg-slate-50 [display:grid] [grid-template-columns:1fr_auto_auto] items-center gap-2"
+                                              >
+                                                <span className="text-sm text-slate-700">{row.label}</span>
+                                                <span className="text-xs text-slate-500 flex items-center justify-start gap-2">
+                                                  {row.isLast && (
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 ring-1 ring-slate-200 whitespace-nowrap">
+                                                      Last payment
+                                                    </span>
+                                                  )}
+                                                </span>
+                                                <span className="text-sm font-medium tabular-nums text-right inline-flex items-center justify-end gap-2">
+                                                  {formatMoney(row.amount)}
+                                                </span>
+                                              </div>
+                                            ))}
                                         </div>
                                       </div>
                                     </div>
