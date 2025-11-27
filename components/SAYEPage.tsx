@@ -517,19 +517,19 @@ const [selectedParticipant, setSelectedParticipant] = useState<Participant | nul
       const grantName = (c as any).grantName as string | undefined;
       if (!grantName) continue;
 
-    const base = enriched.find((p) => p.grantName === grantName);
-    if (!base) continue;
+      const base = enriched.find((p) => p.grantName === grantName);
+      if (!base) continue;
 
-    const monthlyContribution =
-      (c as any).monthlyContribution ?? base.monthlyContribution;
+      const monthlyContribution =
+        (c as any).monthlyContribution ?? base.monthlyContribution;
 
-    // If this participant is not contributing to this plan, hide it from their view
-    if (!monthlyContribution || monthlyContribution <= 0) {
-      continue;
-    }
+      // If this participant is not contributing to this plan, hide it from their view
+      if (!monthlyContribution || monthlyContribution <= 0) {
+        continue;
+      }
 
-    const missedPayments =
-      (c as any).missedPayments ?? base.missedPayments ?? 0
+      const missedPayments =
+        (c as any).missedPayments ?? base.missedPayments ?? 0;
 
       const savingsAmount = Math.max(
         0,
@@ -561,6 +561,7 @@ const [selectedParticipant, setSelectedParticipant] = useState<Participant | nul
         estimatedGain,
         importedHistory,
       });
+    }
 
     return result.sort(
       (a, b) =>
@@ -922,12 +923,13 @@ function SAYEImportsView({
                 </Button>
               </div>
               <p className="text-[11px] text-slate-500">
-                Expected columns:{" "}
-                <code className="font-mono bg-slate-100 px-1 rounded">
-                  employeeId, amount
-                </code>{" "}
-                (additional columns are ignored).
-              </p>
+                <p className="text-[11px] text-slate-500">
+                  Expected columns:{" "}
+                  <code className="font-mono bg-slate-100 px-1 rounded">
+                    employeeId, amount, planYear, deductionDate
+                  </code>{" "}
+                  (deductionDate in dd-mm-yyyy format).
+                </p>
             </div>
           </div>
 
@@ -2388,131 +2390,6 @@ function SAYEReportsView({
           </CardContent>
         </Card>
       )}
-    </div>
-  );
-}
-
-function SAYEImportsView({ planConfigs }: { planConfigs: PlanConfig[] }) {
-  const [selectedPlanIndex, setSelectedPlanIndex] = useState<number>(0);
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
-    setStatus(
-      "File loaded into the demo UI. In a real system this would be validated and queued for import."
-    );
-  };
-
-  const selectedPlan = planConfigs[selectedPlanIndex];
-
-  return (
-    <div className="space-y-4">
-      <Card className="rounded-2xl border-none shadow-sm">
-        <CardContent className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight">
-                SAYE imports
-              </h1>
-              <p className="text-xs text-slate-500 mt-1">
-                Load contribution files against a specific SAYE plan to update
-                savings positions.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">
-                Target SAYE plan
-              </label>
-              <select
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                value={selectedPlanIndex}
-                onChange={(e) =>
-                  setSelectedPlanIndex(Number(e.target.value) || 0)
-                }
-              >
-                {planConfigs.map((p, i) => (
-                  <option key={i} value={i}>
-                    {p.grantName} ({p.termYears}y, opt px {formatMoney(
-                      p.optionPrice
-                    )}
-                    )
-                  </option>
-                ))}
-              </select>
-              {selectedPlan && (
-                <p className="text-[11px] text-slate-500">
-                  Invite window:{" "}
-                  {new Date(selectedPlan.inviteOpen).toLocaleString()} –{" "}
-                  {new Date(selectedPlan.inviteClose).toLocaleString()}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">
-                Contribution file (.csv)
-              </label>
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleFileChange}
-                className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border file:border-slate-300 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-slate-50"
-              />
-              <p className="text-[11px] text-slate-500">
-                Expected columns (demo): employee ID, name, payroll month,
-                amount, currency.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            <div className="text-[11px] text-slate-500">
-              This is a front-end demo only – no data is stored or sent
-              anywhere.
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="h-8 px-3 text-xs"
-                disabled={!fileName}
-                onClick={() =>
-                  setStatus(
-                    "Validation complete (demo). No issues detected in the sample file."
-                  )
-                }
-              >
-                Validate file
-              </Button>
-              <Button
-                className="h-8 px-3 text-xs"
-                disabled={!fileName}
-                onClick={() =>
-                  setStatus(
-                    "Import simulated. In a real system this would push contributions into the plan ledger."
-                  )
-                }
-              >
-                Import contributions
-              </Button>
-            </div>
-          </div>
-
-          {status && (
-            <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
-              <div className="font-medium mb-0.5">
-                {fileName ? fileName : "No file selected"}
-              </div>
-              <div>{status}</div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
