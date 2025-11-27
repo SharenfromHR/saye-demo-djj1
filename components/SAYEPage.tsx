@@ -1883,28 +1883,11 @@ const exportCustomCsv = () => {
 
   const blob = new Blob([lines.join("\n")], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement("a");
   a.href = url;
   a.download = "custom-report.csv";
   a.click();
 
-  URL.revokeObjectURL(url);
-};
-
-  const lines = [
-    selectedFields.map(escape).join(","),
-    ...allContracts.map((row: any) =>
-      selectedFields.map((f) => escape(row[f])).join(",")
-    ),
-  ];
-
-  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "custom-report.csv";
-  a.click();
   URL.revokeObjectURL(url);
 };
       
