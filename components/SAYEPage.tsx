@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Info, ChevronDown } from "lucide-react";
+import SAYEConfigView from "./SAYEConfig";
 
 type Participant = {
   id: string;
