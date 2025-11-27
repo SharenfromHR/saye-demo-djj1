@@ -49,6 +49,11 @@ type PlanScheduleSource = {
   maturityDate: Date;
   monthlyContribution: number;
   missedPayments?: number;
+  importedHistory?: {
+    amount: number;
+    planYear: string;
+    deductionDateIso: string; // yyyy-mm-dd
+  }[];
 };
 
 function buildScheduleForPlan(p: PlanScheduleSource) {
@@ -140,6 +145,30 @@ function buildScheduleForPlan(p: PlanScheduleSource) {
 
   if (upcoming.length) {
     upcoming[upcoming.length - 1].isLast = true;
+  }
+
+  // Append any imported history rows as "paid" entries
+  if (Array.isArray(p.importedHistory)) {
+    for (const h of p.importedHistory) {
+      const d = new Date(h.deductionDateIso);
+      const label = d.toLocaleString(undefined, {
+        month: "long",
+        year: "numeric",
+      });
+      const date = d.toLocaleDateString();
+
+      history.push({
+        label,
+        date,
+        amount: h.amount,
+        status: "paid",
+      });
+    }
+
+    // Optional: sort history by date in case imported rows are out of order
+    history.sort((a, b) => {
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
   }
 
   return { history, upcoming };
@@ -518,6 +547,10 @@ const [selectedParticipant, setSelectedParticipant] = useState<Participant | nul
         (CURRENT_PRICE_GBP - base.optionPrice) * optionsGranted
       );
 
+      const importedHistory = Array.isArray((c as any).importedHistory)
+        ? (c as any).importedHistory
+        : [];
+
       result.push({
         ...base,
         monthlyContribution,
@@ -526,8 +559,8 @@ const [selectedParticipant, setSelectedParticipant] = useState<Participant | nul
         optionsGranted,
         maturityDate,
         estimatedGain,
+        importedHistory,
       });
-    }
 
     return result.sort(
       (a, b) =>
@@ -619,36 +652,40 @@ function SAYEImportsView({
       .split(",")
       .map((h) => h.trim().toLowerCase());
 
-    const empIdx = headerCells.findIndex((h) =>
-      ["employeeid", "employee_id", "employee id", "empid"].includes(h)
-    );
-    const amtIdx = headerCells.findIndex((h) =>
-      [
-        "amount",
-        "monthlycontribution",
-        "monthly_contribution",
-        "contribution",
-      ].includes(h)
-    );
-    const yearIdx = headerCells.findIndex((h) =>
-      ["planyear", "plan_year", "plan year", "year"].includes(h)
-    );
-    const dateIdx = headerCells.findIndex((h) =>
-      ["deductiondate", "deduction_date", "deduction date", "date"].includes(h)
-    );
+    const empIdx = headerCells.indexOf("employeeid");
+    const amtIdx = headerCells.indexOf("amount");
+    const yearIdx = headerCells.indexOf("planyear");
+    const dateIdx = headerCells.indexOf("deductiondate");
 
     if (empIdx === -1 || amtIdx === -1 || yearIdx === -1 || dateIdx === -1) {
       return {
         rows,
         error:
-          'Header row must include "employeeId", "amount", "planYear" and "deductionDate" (dd-mm-yyyy).',
+          'Header row must be: employeeId,amount,planYear,deductionDate (dd-mm-yyyy).',
       };
     }
+
+    const parseDdMmYyyy = (value: string): string | null => {
+      const trimmed = value.trim();
+      const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(trimmed);
+      if (!m) return null;
+      const day = Number(m[1]);
+      const month = Number(m[2]) - 1;
+      const year = Number(m[3]);
+      const d = new Date(year, month, day);
+      if (
+        d.getFullYear() !== year ||
+        d.getMonth() !== month ||
+        d.getDate() !== day
+      ) {
+        return null;
+      }
+      return d.toISOString().slice(0, 10); // yyyy-mm-dd
+    };
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i];
       if (!line) continue;
-
       const cells = line.split(",");
       const maxIdx = Math.max(empIdx, amtIdx, yearIdx, dateIdx);
       if (cells.length <= maxIdx) continue;
@@ -658,16 +695,14 @@ function SAYEImportsView({
       const planYear = cells[yearIdx]?.trim();
       const rawDate = cells[dateIdx]?.trim();
 
-      if (!employeeId || !rawAmt || !planYear || !rawDate) {
-        continue;
-      }
+      if (!employeeId || !rawAmt || !planYear || !rawDate) continue;
 
       const amount = Number(rawAmt);
       if (!isFinite(amount) || amount <= 0) continue;
 
-      const parsedDate = parseDdMmYyyy(rawDate);
-      if (!parsedDate) {
-        error = `Row ${i + 1}: deductionDate must be in dd-mm-yyyy format.`;
+      const iso = parseDdMmYyyy(rawDate);
+      if (!iso) {
+        error = `Row ${i + 1}: deductionDate must be dd-mm-yyyy.`;
         return { rows, error };
       }
 
@@ -675,7 +710,7 @@ function SAYEImportsView({
         employeeId,
         amount,
         planYear,
-        deductionDateIso: parsedDate.toISOString().slice(0, 10),
+        deductionDateIso: iso,
       });
     }
 
@@ -737,17 +772,17 @@ function SAYEImportsView({
 
     let updated = 0;
 
-    // Map of employeeIds we actually matched
+    // Track which employeeIds we actually matched
     const matchedEmployeeIds = new Set<string>();
 
     const updatedParticipants = participants.map((p) => {
       const pEmp = p.employeeId?.trim().toLowerCase();
       if (!pEmp) return p;
 
-      const match = rows.find(
+      const matches = rows.filter(
         (r) => r.employeeId.trim().toLowerCase() === pEmp
       );
-      if (!match) return p;
+      if (!matches.length) return p;
 
       matchedEmployeeIds.add(pEmp);
       updated++;
@@ -756,19 +791,44 @@ function SAYEImportsView({
         ? p.contracts
         : [];
 
+      const existingForPlan = existingContracts.find(
+        (c: any) => c.grantName === targetPlan.grantName
+      );
+
+      const previousHistory: any[] =
+        (existingForPlan as any)?.importedHistory ?? [];
+
+      const newHistoryEntries = matches.map((m) => ({
+        amount: m.amount,
+        planYear: m.planYear,
+        deductionDateIso: m.deductionDateIso,
+      }));
+
+      const mergedHistory = [...previousHistory, ...newHistoryEntries];
+
+      const monthlyContribution =
+        (existingForPlan as any)?.monthlyContribution ??
+        targetPlan.monthlyContribution;
+      const missedPayments =
+        (existingForPlan as any)?.missedPayments ??
+        targetPlan.missedPayments ??
+        0;
+
+      const replacementContract = {
+        ...(existingForPlan || {}),
+        grantName: targetPlan.grantName,
+        monthlyContribution,
+        missedPayments,
+        importedHistory: mergedHistory,
+      };
+
       const withoutThisPlan = existingContracts.filter(
         (c: any) => c.grantName !== targetPlan.grantName
       );
 
-      const newContract = {
-        grantName: targetPlan.grantName,
-        monthlyContribution: match.amount,
-        missedPayments: 0,
-      };
-
       return {
         ...p,
-        contracts: [...withoutThisPlan, newContract],
+        contracts: [...withoutThisPlan, replacementContract],
       };
     });
 
