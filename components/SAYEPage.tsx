@@ -1661,7 +1661,7 @@ return (
                            </div>
             )}
 
-            {view === "config" && <SAYEConfig />}
+            {view === "config" && <SAYEConfig onUpdate={() => {}} />}
 
             {view === "reports" && (
               <SAYEReportsView
