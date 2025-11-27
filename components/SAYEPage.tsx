@@ -551,17 +551,16 @@ const [selectedParticipant, setSelectedParticipant] = useState<Participant | nul
         ? (c as any).importedHistory
         : [];
 
-      result.push({
-        ...base,
-        monthlyContribution,
-        missedPayments,
-        savingsAmount,
-        optionsGranted,
-        maturityDate,
-        estimatedGain,
-        importedHistory,
-      });
-    }
+result.push({
+  ...(base as any),
+  monthlyContribution,
+  missedPayments,
+  savingsAmount,
+  optionsGranted,
+  maturityDate,
+  estimatedGain,
+  importedHistory,
+});
 
     return result.sort(
       (a, b) =>
