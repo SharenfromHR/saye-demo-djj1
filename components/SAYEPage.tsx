@@ -535,13 +535,16 @@ const [selectedParticipant, setSelectedParticipant] = useState<Participant | nul
         0,
         monthlyContribution * (base.monthsSinceStart - missedPayments)
       );
+
       const optionsGranted =
         (monthlyContribution * base.termMonths) / base.optionPrice;
+
       const maturityDate = computeMaturity(
         base.contractStart,
         base.termMonths,
         missedPayments
       );
+
       const estimatedGain = Math.max(
         0,
         (CURRENT_PRICE_GBP - base.optionPrice) * optionsGranted
@@ -551,25 +554,25 @@ const [selectedParticipant, setSelectedParticipant] = useState<Participant | nul
         ? (c as any).importedHistory
         : [];
 
-result.push({
-  ...(base as any),
-  monthlyContribution,
-  missedPayments,
-  savingsAmount,
-  optionsGranted,
-  maturityDate,
-  estimatedGain,
-  importedHistory,
-});
+      result.push({
+        ...(base as any),
+        monthlyContribution,
+        missedPayments,
+        savingsAmount,
+        optionsGranted,
+        maturityDate,
+        estimatedGain,
+        importedHistory,
+      });
+    }
 
-return result.sort(
-  (a, b) =>
-    new Date(a.contractStart).getTime() -
-    new Date(b.contractStart).getTime()
-);
-}, [enriched, selectedParticipant]);
+    return result.sort(
+      (a, b) =>
+        new Date(a.contractStart).getTime() -
+        new Date(b.contractStart).getTime()
+    );
+  }, [enriched, selectedParticipant]);
 
-});
 function SAYEImportsView({
   planConfigs,
   participants,
