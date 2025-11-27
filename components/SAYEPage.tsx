@@ -1874,8 +1874,6 @@ const exportCustomCsv = () => {
     return `"${s.replace(/"/g, '""')}"`;
   };
 
-  // END custom report block
-
   const lines = [
     selectedFields.map(escape).join(","),
     ...allContracts.map((row: any) =>
@@ -1889,8 +1887,8 @@ const exportCustomCsv = () => {
   a.href = url;
   a.download = "custom-report.csv";
   a.click();
-    URL.revokeObjectURL(url);
-    }};
+  URL.revokeObjectURL(url);
+};
       
     const exportToCsv = () => {
     if (!allContracts.length) {
