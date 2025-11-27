@@ -923,13 +923,12 @@ function SAYEImportsView({
                 </Button>
               </div>
               <p className="text-[11px] text-slate-500">
-                <p className="text-[11px] text-slate-500">
-                  Expected columns:{" "}
-                  <code className="font-mono bg-slate-100 px-1 rounded">
-                    employeeId, amount, planYear, deductionDate
-                  </code>{" "}
-                  (deductionDate in dd-mm-yyyy format).
-                </p>
+                Expected columns:{" "}
+                <code className="font-mono bg-slate-100 px-1 rounded">
+                  employeeId, amount, planYear, deductionDate
+                </code>{" "}
+                (deductionDate in dd-mm-yyyy format).
+              </p>
             </div>
           </div>
 
