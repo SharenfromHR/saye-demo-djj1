@@ -569,8 +569,6 @@ return result.sort(
 );
 }, [enriched, selectedParticipant]);
 
-}
-
 function SAYEImportsView({
   planConfigs,
   participants,
