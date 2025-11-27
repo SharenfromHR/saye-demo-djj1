@@ -88,8 +88,11 @@ function buildScheduleForPlan(p: PlanScheduleSource) {
       month: "long",
       year: "numeric",
     });
-const date = formatDdMmYyyy(new Date(d.getFullYear(), d.getMonth(), 10));
-
+    const date = new Date(
+      d.getFullYear(),
+      d.getMonth(),
+      10
+    ).toLocaleDateString();
     const key = `${d.getFullYear()}:${d.getMonth()}`;
     const isMissed = missedSet.has(key);
     history.push({
@@ -130,7 +133,7 @@ const date = formatDdMmYyyy(new Date(d.getFullYear(), d.getMonth(), 10));
         month: "long",
         year: "numeric",
       }),
-      date: formatDdMmYyyy(d),
+      date: d.toLocaleDateString(),
       amount: p.monthlyContribution,
     });
   }
@@ -418,7 +421,7 @@ const [selectedParticipant, setSelectedParticipant] = useState<Participant | nul
     setEnrolment(null);
   }, [selectedParticipant]);
 
-  const enriched = useMemo(() => {
+    const enriched = useMemo(() => {
     const now = new Date();
 
     const livePlans = planConfigs
@@ -552,101 +555,6 @@ function SAYEImportsView({
     unmatched: number;
   } | null>(null);
 
-  type ParsedRow = {
-    employeeId: string;
-    amount: number;
-    planYear: string;
-    deductionDateIso: string;
-  };
-
-  // dd-mm-yyyy -> yyyy-mm-dd (ISO)
-  const parseDdMmYyyy = (value: string): string | null => {
-    const trimmed = value.trim();
-    const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(trimmed);
-    if (!m) return null;
-    const day = Number(m[1]);
-    const month = Number(m[2]) - 1;
-    const year = Number(m[3]);
-    const d = new Date(year, month, day);
-    if (
-      d.getFullYear() !== year ||
-      d.getMonth() !== month ||
-      d.getDate() !== day
-    ) {
-      return null;
-    }
-    return d.toISOString().slice(0, 10); // yyyy-mm-dd
-  };
-
-  const parseContributionCsv = (
-    raw: string
-  ): { rows: ParsedRow[]; error: string | null } => {
-    const lines = raw
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
-
-    if (lines.length <= 1) {
-      return { rows: [], error: "No data rows found in the CSV." };
-    }
-
-    const headerCells = lines[0]
-      .split(",")
-      .map((h) => h.trim().toLowerCase());
-
-    const empIdx = headerCells.indexOf("employeeid");
-    const amtIdx = headerCells.indexOf("amount");
-    const yearIdx = headerCells.indexOf("planyear");
-    const dateIdx = headerCells.indexOf("deductiondate");
-
-    if (empIdx === -1 || amtIdx === -1 || yearIdx === -1 || dateIdx === -1) {
-      return {
-        rows: [],
-        error:
-          "Unexpected header. Expected: employeeId,amount,planYear,deductionDate (dd-mm-yyyy)",
-      };
-    }
-
-    const rows: ParsedRow[] = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      const cells = lines[i].split(",");
-      if (cells.length < headerCells.length) continue;
-
-      const employeeId = cells[empIdx]?.trim();
-      const amtRaw = cells[amtIdx]?.trim();
-      const yearRaw = cells[yearIdx]?.trim();
-      const dateRaw = cells[dateIdx]?.trim();
-
-      if (!employeeId || !amtRaw || !yearRaw || !dateRaw) continue;
-
-      const amount = Number(amtRaw);
-      if (!Number.isFinite(amount)) {
-        return {
-          rows: [],
-          error: `Row ${i + 1}: amount "${amtRaw}" is not a valid number.`,
-        };
-      }
-
-      const iso = parseDdMmYyyy(dateRaw);
-      if (!iso) {
-        return {
-          rows: [],
-          error: `Row ${i + 1}: deductionDate "${dateRaw}" is not a valid dd-mm-yyyy date.`,
-        };
-      }
-
-      rows.push({
-        employeeId,
-        amount,
-        planYear: yearRaw,
-        deductionDateIso: iso,
-      });
-    }
-
-    return { rows, error: null };
-  };
-
   const selectedPlan = planConfigs[selectedPlanIndex];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -659,23 +567,88 @@ function SAYEImportsView({
 
     const reader = new FileReader();
     reader.onload = () => {
-      setFileContent(String(reader.result || ""));
+      const text = String(reader.result || "");
+      setFileContent(text);
     };
     reader.readAsText(file);
   };
 
+  const parseContributionCsv = (raw: string) => {
+    const rows: { employeeId: string; amount: number }[] = [];
+    let error: string | null = null;
+
+    const lines = raw
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    if (!lines.length) {
+      return { rows, error: "File appears to be empty." };
+    }
+
+    const headerCells = lines[0]
+      .split(",")
+      .map((h) => h.trim().toLowerCase());
+
+    const empIdx = headerCells.findIndex((h) =>
+      ["employeeid", "employee_id", "employee id", "empid"].includes(h)
+    );
+    const amtIdx = headerCells.findIndex((h) =>
+      [
+        "amount",
+        "monthlycontribution",
+        "monthly_contribution",
+        "contribution",
+      ].includes(h)
+    );
+
+    if (empIdx === -1 || amtIdx === -1) {
+      return {
+        rows,
+        error:
+          'Header row must include "employeeId" and "amount" (or equivalent headers like monthlyContribution).',
+      };
+    }
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      const cells = line.split(",");
+      if (cells.length <= Math.max(empIdx, amtIdx)) continue;
+
+      const employeeId = cells[empIdx]?.trim();
+      const rawAmt = cells[amtIdx]?.trim();
+
+      if (!employeeId || !rawAmt) continue;
+
+      const amount = Number(rawAmt);
+      if (!isFinite(amount) || amount <= 0) continue;
+
+      rows.push({ employeeId, amount });
+    }
+
+    if (!rows.length) {
+      error =
+        "No valid rows found. Check employee IDs and contribution amounts are populated.";
+    }
+
+    return { rows, error };
+  };
+
   const handleValidate = () => {
     if (!fileContent) {
-      setStatus("No file content to validate.");
+      setStatus("Please choose a CSV file first.");
       setImportSummary(null);
       return;
     }
+
     const { rows, error } = parseContributionCsv(fileContent);
     if (error) {
       setStatus(error);
       setImportSummary(null);
       return;
     }
+
     setStatus(`Validation complete. ${rows.length} row(s) ready to import.`);
     setImportSummary({
       totalRows: rows.length,
@@ -686,183 +659,2311 @@ function SAYEImportsView({
 
   const handleImport = () => {
     if (!fileContent) {
-      setStatus("No file content to import.");
+      setStatus("Please choose and validate a CSV file first.");
+      setImportSummary(null);
+      return;
+    }
+
+    const targetPlan = planConfigs[selectedPlanIndex];
+    if (!targetPlan) {
+      setStatus("Please select a valid SAYE plan.");
+      setImportSummary(null);
       return;
     }
 
     const { rows, error } = parseContributionCsv(fileContent);
     if (error) {
       setStatus(error);
+      setImportSummary(null);
       return;
     }
 
-    if (rows.length === 0) {
-      setStatus("There are no valid rows to import.");
+    if (!rows.length) {
+      setStatus("No valid rows to import.");
+      setImportSummary(null);
       return;
     }
 
-    const targetPlan = selectedPlan;
-    if (!targetPlan) {
-      setStatus("No plan selected.");
-      return;
-    }
+    let updated = 0;
 
-    let updatedCount = 0;
+    // Map of employeeIds we actually matched
+    const matchedEmployeeIds = new Set<string>();
 
     const updatedParticipants = participants.map((p) => {
-      const matches = rows.filter((r) => r.employeeId === p.employeeId);
-      if (matches.length === 0) {
-        return p;
-      }
+      const pEmp = p.employeeId?.trim().toLowerCase();
+      if (!pEmp) return p;
 
-      updatedCount++;
+      const match = rows.find(
+        (r) => r.employeeId.trim().toLowerCase() === pEmp
+      );
+      if (!match) return p;
 
-      const existingContracts = Array.isArray(p.contracts) ? p.contracts : [];
-      const existingForPlan = existingContracts.find(
-        (c) => (c as any).grantName === targetPlan.grantName
+      matchedEmployeeIds.add(pEmp);
+      updated++;
+
+      const existingContracts = Array.isArray(p.contracts)
+        ? p.contracts
+        : [];
+
+      const withoutThisPlan = existingContracts.filter(
+        (c: any) => c.grantName !== targetPlan.grantName
       );
 
-      const previousHistory: any[] =
-        (existingForPlan as any)?.importedHistory ?? [];
-
-      const newHistoryEntries = matches.map((m) => ({
-        amount: m.amount,
-        planYear: m.planYear,
-        deductionDateIso: m.deductionDateIso,
-      }));
-
-      const mergedHistory = [...previousHistory, ...newHistoryEntries];
-
-      const monthlyContribution =
-        (existingForPlan as any)?.monthlyContribution ??
-        targetPlan.monthlyContribution;
-      const missedPayments =
-        (existingForPlan as any)?.missedPayments ??
-        targetPlan.missedPayments ??
-        0;
-
-      const replacementContract = {
-        ...(existingForPlan || {}),
+      const newContract = {
         grantName: targetPlan.grantName,
-        monthlyContribution,
-        missedPayments,
-        importedHistory: mergedHistory,
+        monthlyContribution: match.amount,
+        missedPayments: 0,
       };
-
-      const otherContracts = existingContracts.filter(
-        (c) => (c as any).grantName !== targetPlan.grantName
-      );
 
       return {
         ...p,
-        contracts: [...otherContracts, replacementContract],
+        contracts: [...withoutThisPlan, newContract],
       };
     });
 
-    const knownIds = new Set(participants.map((p) => p.employeeId));
-    const unmatchedCount = rows.filter(
-      (r) => !knownIds.has(r.employeeId)
-    ).length;
+    const unmatched = rows.filter((r) => {
+      const id = r.employeeId.trim().toLowerCase();
+      return !matchedEmployeeIds.has(id);
+    }).length;
 
     setParticipants(updatedParticipants);
+
     setStatus(
-      `Import complete. Updated ${updatedCount} participant(s). ${unmatchedCount} row(s) did not match any participant.`
+      `Import complete. ${updated} participant(s) updated. ${unmatched} row(s) did not match any employee ID in this demo set.`
     );
     setImportSummary({
       totalRows: rows.length,
-      updated: updatedCount,
-      unmatched: unmatchedCount,
+      updated,
+      unmatched,
     });
   };
 
   return (
-    <Card className="rounded-2xl border-none shadow-sm">
-      <CardContent className="p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold">SAYE imports</h2>
-            <p className="text-xs text-slate-500">
-              Upload a CSV of monthly contributions and apply them to a specific
-              grant.
-            </p>
+    <div className="space-y-4">
+      <Card className="rounded-2xl border-none shadow-sm">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight">
+                SAYE imports
+              </h1>
+              <p className="text-xs text-slate-500 mt-1">
+                Load contribution files against a specific SAYE plan to update
+                savings positions for demo participants.
+              </p>
+            </div>
           </div>
-          <select
-            className="border rounded-md px-2 py-1 text-xs"
-            value={selectedPlanIndex}
-            onChange={(e) => setSelectedPlanIndex(Number(e.target.value))}
-          >
-            {planConfigs.map((p, idx) => (
-              <option key={p.grantName + idx} value={idx}>
-                {p.grantName || `Plan ${idx + 1}`}
-              </option>
-            ))}
-          </select>
-        </div>
 
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-            <label className="inline-flex items-center gap-2 text-xs">
-              <span className="inline-flex items-center justify-center rounded-full border px-2 py-1 text-[11px] font-medium cursor-pointer">
-                Choose CSV
-              </span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-600">
+                Target SAYE plan
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={selectedPlanIndex}
+                onChange={(e) =>
+                  setSelectedPlanIndex(Number(e.target.value) || 0)
+                }
+              >
+                {planConfigs.map((p, i) => (
+                  <option key={i} value={i}>
+                    {p.grantName} ({p.termYears}y, opt px{" "}
+                    {formatMoney(p.optionPrice)})
+                  </option>
+                ))}
+              </select>
+              {selectedPlan && (
+                <p className="text-[11px] text-slate-500">
+                  Invite window:{" "}
+                  {new Date(selectedPlan.inviteOpen).toLocaleString()} –{" "}
+                  {new Date(selectedPlan.inviteClose).toLocaleString()}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-600">
+                Contribution file (.csv)
+              </label>
               <input
                 type="file"
-                accept=".csv,text/csv"
-                className="hidden"
+                accept=".csv"
+                className="block w-full text-xs text-slate-600"
                 onChange={handleFileChange}
               />
-            </label>
-            {fileName && (
-              <span className="text-xs text-slate-500 truncate">
-                {fileName}
-              </span>
-            )}
+              <div className="flex gap-2 pt-1">
+                <Button
+                  className="h-8 px-3 text-xs"
+                  type="button"
+                  disabled={!fileName || !fileContent}
+                  onClick={handleValidate}
+                >
+                  Validate file
+                </Button>
+                <Button
+                  className="h-8 px-3 text-xs"
+                  type="button"
+                  disabled={!fileName || !fileContent}
+                  onClick={handleImport}
+                >
+                  Import contributions
+                </Button>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Expected columns:{" "}
+                <code className="font-mono bg-slate-100 px-1 rounded">
+                  employeeId, amount
+                </code>{" "}
+                (additional columns are ignored).
+              </p>
+            </div>
           </div>
 
-          <p className="text-[11px] text-slate-500">
-            Expected columns (in this order):{" "}
-            <span className="font-medium">
-              employeeId, amount, planYear, deductionDate
+          {status && (
+            <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
+              <div className="font-medium mb-0.5">
+                {fileName ? fileName : "No file selected"}
+              </div>
+              <div className="mb-1">{status}</div>
+              {importSummary && (
+                <div className="text-[11px] text-slate-500">
+                  Rows in file: {importSummary.totalRows} • Updated:{" "}
+                  {importSummary.updated} • Unmatched:{" "}
+                  {importSummary.unmatched}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+  const totalMonthly = visiblePlans.reduce(
+    (sum, p) => sum + p.monthlyContribution,
+    0
+  );
+  
+  const CAP = 500;
+  const capClasses =
+    totalMonthly > CAP
+      ? "bg-rose-50 text-rose-700 ring-rose-200"
+      : totalMonthly >= CAP * 0.8
+      ? "bg-amber-50 text-amber-700 ring-amber-200"
+      : "bg-emerald-50 text-emerald-700 ring-emerald-200";
+
+  const nowForInvites = new Date();
+  const openInvites = planConfigs.filter((p) => {
+    if (p.status !== "invite") return false;
+    const open = new Date(p.inviteOpen);
+    const close = new Date(p.inviteClose);
+    return open <= nowForInvites && nowForInvites <= close;
+  });
+
+  const activeInvite = openInvites[0] || null;
+  const minInviteMonthly =
+    openInvites.length > 0 ? Math.min(...openInvites.map((p) => p.minMonthly || 0)) : null;
+  const maxInviteMonthly =
+    openInvites.length > 0 ? Math.max(...openInvites.map((p) => p.maxMonthly || 0)) : null;
+
+  const hasApplied = !!enrolment?.hasApplied && !!activeInvite;
+
+  const openPause = (idx: number) => setModal({ type: "pause", planIdx: idx });
+  const openUnpause = (idx: number) => setModal({ type: "unpause", planIdx: idx });
+  const openCancel = (idx: number) => setModal({ type: "cancel", planIdx: idx });
+  const closeModal = () => setModal({ type: null, planIdx: null });
+
+  const handleOpenParticipantFromConfig = (participant: Participant) => {
+    setSelectedParticipant(participant);
+    setView("participant");
+  };
+
+  const confirmModal = () => {
+    const idx = modal.planIdx;
+    if (idx == null) return closeModal();
+    const plan = enriched[idx];
+    if (!plan) return closeModal();
+
+    if (modal.type === "pause") {
+      setPlanConfigs((prev) =>
+        prev.map((cfg, i) => (i === plan.configIndex ? { ...cfg, paused: true } : cfg))
+      );
+    } else if (modal.type === "unpause") {
+      setPlanConfigs((prev) =>
+        prev.map((cfg, i) => (i === plan.configIndex ? { ...cfg, paused: false } : cfg))
+      );
+    } else if (modal.type === "cancel") {
+      alert(`Cancel & refund requested for ${plan.grantName}. You will lose the right to exercise options.`);
+    }
+    closeModal();
+  };
+
+  const toggleInvitePanel = () => {
+    if (!activeInvite) return;
+
+    setShowInvitePanel((prev) => {
+      const next = !prev;
+
+      // If they open the panel for the first time, pre-fill with a mid value
+      if (next && !enrolment) {
+        const mid =
+          (activeInvite.minMonthly + activeInvite.maxMonthly) / 2;
+
+        setEnrolment({
+          amount: mid,
+          accepted: false,
+          read: false,
+          hasApplied: false,
+        });
+      }
+
+      return next;
+    });
+  };
+
+const handleConfirmEnrolment = () => {
+  if (!activeInvite || !enrolment || !selectedParticipant) return;
+
+  const appliedAt = new Date().toISOString();
+
+  // Update local enrolment state for the panel
+  setEnrolment((prev) =>
+    prev ? { ...prev, hasApplied: true } : prev
+  );
+
+  // Log / update the enrolment record for reporting
+  setEnrolmentRecords((prev) => {
+    const id = `${selectedParticipant.id}-${activeInvite.grantName}`;
+
+    const base: EnrollmentRecord = {
+      id,
+      participantId: selectedParticipant.id,
+      participantName: selectedParticipant.name,
+      employeeId: selectedParticipant.employeeId,
+      email: selectedParticipant.email,
+      entity: selectedParticipant.entity,
+      country: selectedParticipant.country,
+      grantName: activeInvite.grantName,
+      amount: enrolment.amount,
+      appliedAt,
+      inviteOpen: activeInvite.inviteOpen,
+      inviteClose: activeInvite.inviteClose,
+    };
+
+    const existingIndex = prev.findIndex(
+      (r) =>
+        r.participantId === selectedParticipant.id &&
+        r.grantName === activeInvite.grantName
+    );
+
+    if (existingIndex >= 0) {
+      const clone = [...prev];
+      clone[existingIndex] = { ...clone[existingIndex], ...base };
+      return clone;
+    }
+
+    return [...prev, base];
+  });
+
+  // 🔽 Close the enrolment dropdown
+  setShowInvitePanel(false);
+
+  // ✅ Show confirmation popup
+  setEnrolmentConfirmation({
+    grantName: activeInvite.grantName,
+    amount: enrolment.amount,
+    contractStart: activeInvite.contractStart,
+  });
+};
+
+    const canConfirmEnrolment =
+    !!activeInvite &&
+    !!enrolment &&
+    enrolment.accepted &&
+    enrolment.read &&
+    enrolment.amount >= activeInvite.minMonthly &&
+    enrolment.amount <= activeInvite.maxMonthly;
+
+return (
+  <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+    {enrolmentConfirmation && (
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
+        <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+          <h2 className="text-sm font-semibold text-slate-900 mb-2">
+            Enrolment submitted
+          </h2>
+
+          <p className="text-xs text-slate-600 mb-3">
+            You&apos;ve applied to save{" "}
+            <span className="font-semibold">
+              {formatMoney(enrolmentConfirmation.amount)}
             </span>{" "}
-            where <span className="font-mono">deductionDate</span> is{" "}
-            <span className="font-mono">dd-mm-yyyy</span>.
+            per month into{" "}
+            <span className="font-semibold">
+              {enrolmentConfirmation.grantName}
+            </span>
+            .
           </p>
-        </div>
 
-        <div className="flex flex-wrap gap-2 text-xs">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={handleValidate}
-            disabled={!fileContent}
-          >
-            Validate
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleImport}
-            disabled={!fileContent}
-          >
-            Import
-          </Button>
-        </div>
+          <p className="text-xs text-slate-600 mb-3">
+            Your contract is scheduled to start on{" "}
+            <span className="font-semibold">
+              {new Date(
+                enrolmentConfirmation.contractStart
+              ).toLocaleDateString()}
+            </span>
+            .
+          </p>
 
-        {status && (
-          <div className="text-[11px] text-slate-600 bg-slate-50 rounded-md px-3 py-2">
-            {status}
+          <p className="text-[11px] text-slate-500 mb-4">
+            You can amend your savings amount at any time while the invite
+            window is open. After the window closes, your amount is locked in
+            and any changes must follow the SAYE plan rules.
+          </p>
+
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              className="h-8 px-4 text-xs"
+              onClick={() => setEnrolmentConfirmation(null)}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    <div className="mx-auto max-w-7xl px-4 pt-6 pb-10">
+      <div className="flex gap-6">
+        {/* Sidebar... */}
+          <aside className="w-60 shrink-0">
+            <nav className="sticky top-6 space-y-1 text-sm">
+              {["Dashboard", "My portfolio", "My orders", "Documents", "Simulations"].map(
+                (label) => (
+                  <div
+                    key={label}
+                    className="px-3 py-2 rounded-xl text-slate-600 hover:bg-white/60 cursor-default"
+                  >
+                    {label}
+                  </div>
+                )
+              )}
+              
+             <div className="space-y-1">
+  <button
+    type="button"
+    onClick={() => setSayeMenuOpen((o) => !o)}
+    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm transition ${
+      view === "participant" ||
+      view === "config" ||
+      view === "reports" ||
+      view === "imports"
+        ? "bg-white shadow-sm ring-1 ring-slate-200 text-slate-900"
+        : "text-slate-600 hover:bg-white/60"
+    }`}
+  >
+    <span>SAYE</span>
+    <ChevronDown
+      className={`h-4 w-4 transition-transform ${
+        sayeMenuOpen ? "rotate-180 text-emerald-600" : "text-slate-400"
+      }`}
+    />
+  </button>
+  {sayeMenuOpen && (
+    <div className="ml-6 space-y-1">
+      <button
+        type="button"
+        onClick={() => setView("config")}
+        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs ${
+          view === "config"
+            ? "bg-slate-900 text-white"
+            : "text-slate-600 hover:bg-white/70"
+        }`}
+      >
+        Configuration
+      </button>
+      <button
+        type="button"
+        onClick={() => setView("reports")}
+        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs ${
+          view === "reports"
+            ? "bg-slate-900 text-white"
+            : "text-slate-600 hover:bg-white/70"
+        }`}
+      >
+        Reports
+      </button>
+      <button
+        type="button"
+        onClick={() => setView("imports")}
+        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs ${
+          view === "imports"
+            ? "bg-slate-900 text-white"
+            : "text-slate-600 hover:bg-white/70"
+        }`}
+      >
+        Imports
+      </button>
+    </div>
+  )}
+</div>
+
+
+              <div className="px-3 py-2 rounded-xl text-slate-600 hover:bg:white/60 cursor-default">
+                Support
+              </div>
+            </nav>
+
+            <div className="mt-6 p-4 rounded-2xl shadow-sm ring-1 ring-slate-200 bg-white">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-md bg-slate-900 text-white flex items-center justify-center text-xs font-semibold">
+                  DJJ
+                </div>
+                <div className="text-sm font-medium text-slate-808">{COMPANY}</div>
+              </div>
+              <div className="mt-3">
+                <div className="text-2xl font-semibold text-slate-900">£{CURRENT_PRICE_GBP.toFixed(2)}</div>
+                <div className="text-xs text-slate-500 mt-1">
+                  {TICKER} • Latest date {new Date().toLocaleDateString()}
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <main className="flex-1">
+                        {view === "participant" && (
+              <div className="space-y-5">
+                                {selectedParticipant && (
+                  <div className="flex justify-end">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-slate-900 text-white text-xs px-3 py-1.5 shadow-sm">
+                      <span>
+                        Viewing as:{" "}
+                        <span className="font-semibold">
+                          {selectedParticipant.name}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        className="h-5 w-5 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-xs"
+                        onClick={() => {
+                          setSelectedParticipant(null);
+                          setShowInvitePanel(false);
+                          setEnrolment(null);
+                          setConfigTab("participants");
+                          setView("config");
+                        }}
+                        aria-label="Clear participant view"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {openInvites.length > 0 && activeInvite && (
+                  <Card className="rounded-2xl border-none shadow-sm">
+                    <CardContent className="p-4 flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">
+                          SAYE invite open
+                        </p>
+                        <p className="text-sm font-medium text-slate-900">
+                          {activeInvite.grantName}
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          Invite window{" "}
+                          {new Date(activeInvite.inviteOpen).toLocaleString()} –{" "}
+                          {new Date(activeInvite.inviteClose).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 text-xs">
+                        <div className="text-slate-600">
+                          Min £{activeInvite.minMonthly.toFixed(0)} / max £
+                          {activeInvite.maxMonthly.toFixed(0)} per month
+                        </div>
+                        <Button className="h-8 px-3 text-xs" onClick={toggleInvitePanel}>
+                          {showInvitePanel ? "Hide enrolment" : "View enrolment"}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {showInvitePanel && activeInvite && enrolment && (
+                  <Card className="rounded-2xl border-none shadow-sm">
+                    <CardContent className="p-6 space-y-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                            Enrolment • {activeInvite.grantName}
+                          </p>
+                          <h2 className="text-base font-semibold text-slate-900">Step 1 · Introduction</h2>
+                        </div>
+                        {hasApplied && (
+                          <span className="text-[11px] px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+                            You have applied for £{enrolment.amount.toFixed(2)} per month
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="rounded-xl overflow-hidden border border-slate-100 h-56 bg-slate-100">
+                        <img
+                          src="https://images.pexels.com/photos/912050/pexels-photo-912050.jpeg?auto=compress&cs=tinysrgb&w=1200"
+                          alt="Airplane flying above the clouds"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+
+                      <p className="text-sm text-slate-700">
+                        You&apos;ve been invited to join your company&apos;s Save As You Earn (SAYE) plan. Save a fixed
+                        amount from your net pay each month and, at maturity, you can use your savings to buy shares
+                        at the fixed option price – or simply take your cash back.
+                      </p>
+
+                      <div className="border-t border-slate-100 pt-4 space-y-3">
+                        <h3 className="text-sm font-semibold text-slate-900">Step 2 · Choose monthly amount</h3>
+                        <p className="text-xs text-slate-500">
+                          Choose any whole pound amount between £{activeInvite.minMonthly} and £{activeInvite.maxMonthly}.
+                        </p>
+                        <div className="flex flex-wrap items-end gap-4">
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-slate-600">Monthly savings (£)</label>
+                            <input
+                              type="number"
+                              min={activeInvite.minMonthly}
+                              max={activeInvite.maxMonthly}
+                              step={1}
+                              className="w-40 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                              value={enrolment.amount}
+                              onChange={(e) => {
+                                const v = Number(e.target.value) || 0;
+                                setEnrolment((prev) => (prev ? { ...prev, amount: v } : prev));
+                              }}
+                            />
+
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            <div>
+                              Option price: <span className="font-medium">{formatMoney(activeInvite.optionPrice)}</span>
+                            </div>
+                            <div>
+                              Indicative options if you complete the plan:&nbsp;
+                              <span className="font-medium">
+                                {Math.round(
+                                  (enrolment.amount * activeInvite.termMonths) / activeInvite.optionPrice
+                                ).toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-slate-100 pt-4 space-y-3">
+                        <h3 className="text-sm font-semibold text-slate-900">Step 3 · Confirm & apply</h3>
+                        <p className="text-xs text-slate-500">
+                          Tick both boxes to confirm you&apos;ve read the documents and understand how deductions will
+                          work.
+                        </p>
+                        <div className="space-y-2 text-xs text-slate-700">
+                          <label className="flex items-start gap-2">
+                            <input
+                              type="checkbox"
+                              className="mt-0.5"
+                              checked={enrolment.read}
+                              onChange={(e) =>
+                                setEnrolment((prev) => (prev ? { ...prev, read: e.target.checked } : prev))
+                              }
+                            />
+                            <span>
+                              I confirm I&apos;ve read the{" "}
+                              <a href="#" className="text-indigo-600 hover:underline">
+                                SAYE plan rules
+                              </a>{" "}
+                              and the{" "}
+                              <a href="#" className="text-indigo-600 hover:underline">
+                                Key Information Document
+                              </a>
+                              .
+                            </span>
+                          </label>
+                          <label className="flex items-start gap-2">
+                            <input
+                              type="checkbox"
+                              className="mt-0.5"
+                              checked={enrolment.accepted}
+                              onChange={(e) =>
+                                setEnrolment((prev) => (prev ? { ...prev, accepted: e.target.checked } : prev))
+                              }
+                            />
+                            <span>
+                              I understand my chosen amount will be deducted from my net pay each month for the full
+                              term of the plan unless I change or cancel my participation in line with the plan rules.
+                            </span>
+                          </label>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2">
+                          <div className="text-[11px] text-slate-500">
+                            You can amend your application any time while the invite window is open.
+                          </div>
+                          <Button
+                            className="h-8 px-4 text-xs"
+                            disabled={!canConfirmEnrolment}
+                            onClick={handleConfirmEnrolment}
+                          >
+                            {hasApplied ? "Update application" : "Confirm enrolment"}
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <Card className="rounded-2xl border-none shadow-sm">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <h1 className="text-xl font-semibold tracking-tight">Save As You Earn (SAYE)</h1>
+                      <div className="flex gap-4 text-xs text-slate-500">
+                        <a href="#" className="hover:underline">
+                          Plan Rules
+                        </a>
+                        <a href="#" className="hover:underline">
+                          FAQ
+                        </a>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2 text-slate-500">
+                        <Info className="h-4 w-4" />
+                        <span>Missed payments extend the maturity by one month each. 13 missed = plan lapses.</span>
+                      </div>
+                      <div className="font-medium">
+                        <span
+                          className={`inline-flex items-center rounded-full ring-1 px-2.5 py-1 ${capClasses}`}
+                        >
+                          Total monthly: £{totalMonthly} / £500
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-2xl border-none shadow-sm">
+                  <CardContent className="p-0 overflow-hidden">
+                    <table className="min-w-full">
+                      <thead className="bg-white">
+                        <tr>
+                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
+                            Plan
+                          </th>
+                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
+                            Start date
+                          </th>
+                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
+                            Maturity
+                          </th>
+                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
+                            Opt px
+                          </th>
+                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
+                            Optns
+                          </th>
+                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
+                            Missed
+                          </th>
+                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
+  <div className="flex items-center gap-1 relative group">
+    Estimated gain
+    <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold cursor-default">
+      i
+    </span>
+    <div
+      className="
+        absolute left-1/2 -translate-x-1/2 top-full mt-1
+        hidden group-hover:block
+        whitespace-nowrap
+        bg-slate-900 text-white text-xs px-2 py-1 rounded-md shadow-lg
+        z-50
+      "
+    >
+      (Current price – option price) × options granted. 
+    </div>
+  </div>
+</th>
+
+                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
+                            Saved
+                          </th>
+                          <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
+                            £/mo
+                          </th>
+                          <th className="text-right text-xs font-semibold uppercase tracking-wider text-slate-500 py-2 px-3">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-slate-50/50">
+                          {visiblePlans.map((p, idx) => {
+                          const isOpen = !!openRows[idx];
+                          const { history, upcoming } = buildScheduleForPlan(p);
+                          return (
+                            <React.Fragment key={idx}>
+                              <tr className={`hover:bg-white/70 ${isOpen ? "bg-white/60" : ""}`}>
+                                <td className="py-2 px-3 text-sm font-medium text-slate-800">
+                                  <button
+                                    className="flex items-center gap-1 underline-offset-2 hover:underline cursor-pointer text-left"
+                                    onClick={() => setOpenRows((r) => ({ ...r, [idx]: !r[idx] }))}
+                                    aria-expanded={isOpen}
+                                    title="View schedule"
+                                  >
+                                    <ChevronDown
+                                      className={`h-4 w-4 transition-transform ${
+                                        isOpen ? "rotate-180 text-emerald-600" : "text-slate-400"
+                                      }`}
+                                    />
+                                    {p.grantName}
+                                  </button>
+                                </td>
+                                <td className="py-2 px-3 text-sm text-slate-700">
+                                  {new Date(p.contractStart).toLocaleDateString()}
+                                </td>
+                                <td className="py-2 px-3 text-sm text-slate-700">
+                                  {p.maturityDate.toLocaleDateString()}
+                                </td>
+                                <td className="py-2 px-3 text-sm text-slate-700">{formatMoney(p.optionPrice)}</td>
+                                <td className="py-2 px-3 text-sm text-slate-700">
+                                  {Math.round(p.optionsGranted).toLocaleString()}
+                                </td>
+                                <td className="py-2 px-3 text-sm text-slate-700">{p.missedPayments}</td>
+                                <td
+                                  className={`py-2 px-3 text-sm font-medium ${
+                                    p.estimatedGain > 0 ? "text-emerald-700" : "text-slate-400"
+                                  }`}
+                                >
+                                  {formatMoney(p.estimatedGain)}
+                                </td>
+                                <td className="py-2 px-3 text-sm text-slate-700">{formatMoney(p.savingsAmount)}</td>
+                                <td className="py-2 px-3 text-sm text-slate-700">
+                                  {formatMoney(p.monthlyContribution)}
+                                </td>
+                                <td className="py-2 px-3 text-sm whitespace-nowrap text-right">
+                                  <div className="inline-flex items-center gap-2">
+                                    {p.paused ? (
+                                      <Button
+                                        variant="outline"
+                                        className="h-8 px-2 text-xs"
+                                        onClick={() => openUnpause(idx)}
+                                      >
+                                        Unpause
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        variant="outline"
+                                        className="h-8 px-2 text-xs"
+                                        onClick={() => openPause(idx)}
+                                      >
+                                        Pause
+                                      </Button>
+                                    )}
+                                    <Button
+                                      variant="secondary"
+                                      className="h-8 px-2 text-xs"
+                                      onClick={() => openCancel(idx)}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                              {isOpen && (
+                                <tr className="bg-white">
+                                  <td colSpan={10} className="px-3 py-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div>
+                                        <div className="text-xs font-semibold text-slate-700 mb-2">
+                                          History of contributions
+                                        </div>
+                                        <div className="max-h-64 overflow-auto rounded-md ring-1 ring-slate-100">
+                                          <div className="sticky top-0 bg-slate-50/80 backdrop-blur px-2 py-1 text-[11px] text-slate-500 font-medium [display:grid] [grid-template-columns:1fr_auto_auto] items-center">
+                                            <span>Month</span>
+                                            <span>Date</span>
+                                            <span className="text-right">Amount</span>
+                                          </div>
+                                          {history.length === 0 && (
+                                            <div className="px-2 py-2 text-sm text-slate-500">
+                                              No contributions yet.
+                                            </div>
+                                          )}
+                                          {history.map((row, i) => (
+                                            <div
+                                              key={i}
+                                              className={`px-2 py-1.5 [display:grid] [grid-template-columns:1fr_auto_auto] items-center gap-2 ${
+                                                row.status === "missed" ? "bg-amber-50" : "hover:bg-slate-50"
+                                              }`}
+                                            >
+                                              <span className="text-sm text-slate-700">{row.label}</span>
+                                              <span className="text-xs text-slate-500">{row.date}</span>
+                                              <span
+                                                className={`text-sm font-medium tabular-nums text-right ${
+                                                  row.status === "missed" ? "text-amber-700" : "text-slate-900"
+                                                }`}
+                                              >
+                                                {row.status === "missed" ? "Missed" : formatMoney(row.amount)}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <div className="text-xs font-semibold text-slate-700 mb-2">
+                                          Upcoming payments
+                                        </div>
+                                        <div className="max-h-64 overflow-auto rounded-md ring-1 ring-slate-100">
+                                          <div className="sticky top-0 bg-slate-50/80 backdrop-blur px-2 py-1 text-[11px] text-slate-500 font-medium [display:grid] [grid-template-columns:1fr_auto_auto] items-center">
+                                            <span>Month</span>
+                                            <span>Date</span>
+                                            <span className="text-right">Amount</span>
+                                          </div>
+                                          {upcoming.map((row, i) => (
+                                            <div
+                                              key={i}
+                                              className="px-2 py-1.5 hover:bg-slate-50 [display:grid] [grid-template-columns:1fr_auto_auto] items-center gap-2"
+                                            >
+                                              <span className="text-sm text-slate-700">{row.label}</span>
+                                              <span className="text-xs text-slate-500 flex items-center justify-start gap-2">
+                                                {row.isLast && (
+                                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 ring-1 ring-slate-200 whitespace-nowrap">
+                                                    Last payment
+                                                  </span>
+                                                )}
+                                                {row.date}
+                                              </span>
+                                              <span className="text-sm font-medium tabular-nums text-right inline-flex items-center justify-end gap-2">
+                                                {formatMoney(row.amount)}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </CardContent>
+                </Card>
+                           </div>
+            )}
+
+            {view === "config" && (
+              <SAYEConfigView
+                planConfigs={planConfigs}
+                setPlanConfigs={setPlanConfigs}
+                participants={participants}
+                setParticipants={setParticipants}
+                enrolments={enrolmentRecords}
+                tab={configTab}
+                setTab={setConfigTab}
+                onSelectParticipant={(p) => {
+                  setConfigTab("participants");
+                  setSelectedParticipant(p);
+                  setView("participant");
+                }}
+
+              />
+            )}
+
+            {view === "reports" && (
+              <SAYEReportsView
+                plans={enriched}
+                planConfigs={planConfigs}
+                participants={participants}
+                enrolments={enrolmentRecords}
+              />
+            )}
+            
+            {view === "imports" && (
+              <SAYEImportsView
+                planConfigs={planConfigs}
+                participants={participants}
+                setParticipants={setParticipants}
+              />
+            )}
+          </main>
+
+        </div>
+      </div>
+
+      <Modal
+        open={modal.type === "pause"}
+        title="Pause your SAYE contributions"
+        tone="neutral"
+        onClose={closeModal}
+        onConfirm={confirmModal}
+        confirmLabel="Confirm pause"
+      >
+        <ul className="list-disc pl-5 space-y-2">
+          <li>Your monthly contributions will stop from the next eligible payroll cut-off.</li>
+          <li>
+            You will need to <strong>manually unpause</strong> when you want contributions to resume.
+          </li>
+          <li>
+            Paused months are counted as missed payments and each missed payment moves your maturity back by one
+            month.
+          </li>
+        </ul>
+      </Modal>
+
+      <Modal
+        open={modal.type === "unpause"}
+        title="Unpause your SAYE contributions"
+        tone="neutral"
+        onClose={closeModal}
+        onConfirm={confirmModal}
+        confirmLabel="Confirm unpause"
+      >
+        <ul className="list-disc pl-5 space-y-2">
+          <li>Monthly contributions will resume from the next eligible payroll cut-off.</li>
+          <li>Missed months during the pause remain missed and still delay your maturity date.</li>
+        </ul>
+      </Modal>
+
+      <Modal
+        open={modal.type === "cancel"}
+        title="Cancel plan & refund savings"
+        tone="warning"
+        onClose={closeModal}
+        onConfirm={confirmModal}
+        confirmLabel="I understand — cancel plan"
+      >
+        <ul className="list-disc pl-5 space-y-2">
+          <li>
+            Once cancelled, you <strong>lose the right to your SAYE options</strong>. This cannot be undone.
+          </li>
+          <li>Your saved contributions will be refunded in line with plan rules (usually the next payroll cycle).</li>
+          <li>Any future contributions will stop immediately.</li>
+        </ul>
+      </Modal>
+    </div>
+  );
+}
+type ReportKey = "summary" | "enrolment" | "missed" | "maturity" | "cap";
+
+function SAYEReportsView({
+  plans,
+  planConfigs,
+  participants,
+  enrolments,
+}: {
+  plans: any[];
+  planConfigs: PlanConfig[];
+  participants: Participant[];
+  enrolments: EnrollmentRecord[];
+}) {
+  const [activeReport, setActiveReport] = useState<ReportKey>("summary");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+
+  const totalMonthly = plans.reduce(
+    (sum: number, p: any) => sum + (p.monthlyContribution || 0),
+    0
+  );
+  const CAP = 500;
+
+  // 🔄 Flatten all participant contracts into a single dataset
+  const allContracts = useMemo(() => {
+    const configsByGrantName = new Map(
+      planConfigs.map((pc) => [pc.grantName, pc])
+    );
+
+    const rows: any[] = [];
+
+    participants.forEach((participant) => {
+      const contracts = Array.isArray(participant.contracts)
+        ? participant.contracts
+        : [];
+
+      contracts.forEach((contract: any) => {
+        const monthly = contract.monthlyContribution ?? 0;
+        if (!monthly) return; // skip non-contributors
+
+        const cfg = configsByGrantName.get(contract.grantName);
+        const enriched = plans.find(
+          (p: any) => p.grantName === contract.grantName
+        );
+
+        rows.push({
+          // Participant info
+          participantId: participant.id,
+          participantName: participant.name,
+          employeeId: participant.employeeId,
+          email: participant.email,
+          entity: participant.entity,
+          country: participant.country,
+          location: participant.location,
+          currency: participant.currency ?? "GBP",
+
+          // Contract / plan link
+          grantName: contract.grantName,
+          monthlyContribution: monthly,
+          missedPayments: contract.missedPayments ?? 0,
+
+          // Config info
+          planStatus: cfg?.status,
+          termYears: cfg?.termYears,
+          optionPrice: cfg?.optionPrice,
+          bonusRate: cfg?.bonusRate,
+          grantDate: cfg?.grantDate,
+          contractStart: cfg?.contractStart,
+          termMonths: cfg?.termMonths,
+
+          // Enriched metrics
+          maturityDate: enriched?.maturityDate
+            ? enriched.maturityDate.toISOString().slice(0, 10)
+            : undefined,
+          savingsAmount: enriched?.savingsAmount,
+          optionsGranted: enriched?.optionsGranted,
+          maturityValueAt5pc: enriched?.maturityValueAt5pc,
+          estimatedGain: enriched?.estimatedGain,
+        });
+      });
+    });
+
+    return rows;
+  }, [participants, planConfigs, plans]);
+
+  const exportToCsv = () => {
+    if (!allContracts.length) {
+      alert("No data to export.");
+      return;
+    }
+
+    const headers = Object.keys(allContracts[0]);
+
+    const escape = (value: unknown): string => {
+      if (value === null || value === undefined) return "";
+      const str = String(value);
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const lines = [
+      headers.map(escape).join(","),
+      ...allContracts.map((row) =>
+        headers.map((h) => escape((row as any)[h])).join(",")
+      ),
+    ];
+
+    const blob = new Blob([lines.join("\r\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "saye-full-report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // 🔎 Enrolment report period filter
+  const filteredEnrolments = useMemo(() => {
+    if (!enrolments || enrolments.length === 0) return [];
+
+    return enrolments.filter((r) => {
+      const applied = new Date(r.appliedAt);
+
+      if (fromDate) {
+        const from = new Date(fromDate);
+        if (applied < from) return false;
+      }
+
+      if (toDate) {
+        const to = new Date(toDate);
+        to.setHours(23, 59, 59, 999); // include whole end date
+        if (applied > to) return false;
+      }
+
+      return true;
+    });
+  }, [enrolments, fromDate, toDate]);
+
+  const exportEnrolmentsCsv = () => {
+    if (!filteredEnrolments.length) {
+      alert("No enrolments in this period.");
+      return;
+    }
+
+    const headers: (keyof EnrollmentRecord)[] = [
+      "participantId",
+      "participantName",
+      "employeeId",
+      "email",
+      "entity",
+      "country",
+      "grantName",
+      "amount",
+      "appliedAt",
+      "inviteOpen",
+      "inviteClose",
+    ];
+
+    const escape = (value: unknown): string => {
+      if (value === null || value === undefined) return "";
+      const str = String(value);
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const lines = [
+      headers.map(escape).join(","),
+      ...filteredEnrolments.map((row) =>
+        headers.map((h) => escape(row[h])).join(",")
+      ),
+    ];
+
+    const blob = new Blob([lines.join("\r\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "saye-enrolments.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card className="rounded-2xl border-none shadow-sm">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight">
+                SAYE reports
+              </h1>
+              <p className="text-xs text-slate-500 mt-1">
+                Run quick, pre-configured reports over your SAYE contracts and
+                offerings.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="text-[11px] text-slate-500">
+                Total contracts:{" "}
+                <span className="font-semibold">{allContracts.length}</span>
+              </div>
+              <Button
+                type="button"
+                className="h-8 px-3 text-xs"
+                variant="outline"
+                onClick={exportToCsv}
+              >
+                Export CSV
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={activeReport === "summary" ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setActiveReport("summary")}
+            >
+              Active contracts
+            </Button>
+            <Button
+              variant={activeReport === "enrolment" ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setActiveReport("enrolment")}
+            >
+              Enrolments
+            </Button>
+            <Button
+              variant={activeReport === "missed" ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setActiveReport("missed")}
+            >
+              Missed payments
+            </Button>
+            <Button
+              variant={activeReport === "maturity" ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setActiveReport("maturity")}
+            >
+              Maturity calendar
+            </Button>
+            <Button
+              variant={activeReport === "cap" ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setActiveReport("cap")}
+            >
+              Contribution cap usage
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* SUMMARY */}
+      {activeReport === "summary" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6">
+            <h2 className="text-sm font-semibold mb-3">
+              Active contracts summary
+            </h2>
+            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50/80">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Plan
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Start date
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Maturity
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      £/mo
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Saved
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Options
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Est. gain
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {plans.map((p: any, i: number) => (
+                    <tr key={i}>
+                      <td className="px-3 py-2 text-xs font-medium text-slate-800">
+                        {p.grantName}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {new Date(p.contractStart).toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {p.maturityDate.toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {formatMoney(p.monthlyContribution)}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {formatMoney(p.savingsAmount)}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {Math.round(p.optionsGranted).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 text-xs font-medium text-emerald-700">
+                        {formatMoney(p.estimatedGain)}
+                      </td>
+                    </tr>
+                  ))}
+                  {plans.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-3 py-4 text-xs text-slate-500 text-center"
+                      >
+                        No live SAYE contracts.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ENROLMENTS */}
+      {activeReport === "enrolment" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6 space-y-4">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h2 className="text-sm font-semibold mb-1">
+                  Enrolment report
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Shows applications captured from the enrolment panel while an
+                  invite window is open.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-end gap-3 text-xs">
+                <div className="flex flex-col">
+                  <label className="text-[11px] text-slate-500 mb-1">
+                    From date
+                  </label>
+                  <input
+                    type="date"
+                    className="border border-slate-200 rounded-md px-2 py-1 text-xs"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-[11px] text-slate-500 mb-1">
+                    To date
+                  </label>
+                  <input
+                    type="date"
+                    className="border border-slate-200 rounded-md px-2 py-1 text-xs"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[11px] text-slate-500 mb-1">
+                    Enrolments in period
+                  </span>
+                  <span className="text-xs font-semibold">
+                    {filteredEnrolments.length}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  className="h-8 px-3 text-xs"
+                  variant="outline"
+                  onClick={exportEnrolmentsCsv}
+                >
+                  Export enrolments CSV
+                </Button>
+              </div>
+            </div>
+
+            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50/80">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Applied at
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Participant
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Employee ID
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Plan
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Amount (£/mo)
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Invite window
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {filteredEnrolments.map((r) => (
+                    <tr key={r.id}>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {new Date(r.appliedAt).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {r.participantName}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {r.employeeId || "—"}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {r.grantName}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {formatMoney(r.amount)}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {new Date(r.inviteOpen).toLocaleDateString()} –{" "}
+                        {new Date(r.inviteClose).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredEnrolments.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-3 py-4 text-xs text-slate-500 text-center"
+                      >
+                        No enrolments captured yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* MISSED */}
+      {activeReport === "missed" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6">
+            <h2 className="text-sm font-semibold mb-3">
+              Missed payments and maturity impact
+            </h2>
+            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50/80">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Plan
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Missed payments
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Current maturity
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Note
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {plans
+                    .filter((p: any) => (p.missedPayments || 0) > 0)
+                    .map((p: any, i: number) => (
+                      <tr key={i}>
+                        <td className="px-3 py-2 text-xs font-medium text-slate-800">
+                          {p.grantName}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.missedPayments}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.maturityDate.toLocaleDateString()}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          Each missed payment pushes maturity back by one month.
+                        </td>
+                      </tr>
+                    ))}
+                  {plans.filter((p: any) => (p.missedPayments || 0) > 0).length ===
+                    0 && (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-3 py-4 text-xs text-slate-500 text-center"
+                      >
+                        No missed payments across active contracts.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* MATURITY */}
+      {activeReport === "maturity" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6">
+            <h2 className="text-sm font-semibold mb-3">Maturity calendar</h2>
+            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50/80">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Plan
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Maturity
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Term
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      £/mo
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-500">
+                      Saved
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {plans
+                    .slice()
+                    .sort(
+                      (a: any, b: any) =>
+                        a.maturityDate.getTime() - b.maturityDate.getTime()
+                    )
+                    .map((p: any, i: number) => (
+                      <tr key={i}>
+                        <td className="px-3 py-2 text-xs font-medium text-slate-800">
+                          {p.grantName}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.maturityDate.toLocaleDateString()}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.termYears} years
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {formatMoney(p.monthlyContribution)}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {formatMoney(p.savingsAmount)}
+                        </td>
+                      </tr>
+                    ))}
+                  {plans.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-3 py-4 text-xs text-slate-500 text-center"
+                      >
+                        No live SAYE plans.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* CAP */}
+      {activeReport === "cap" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6 space-y-4">
+            <h2 className="text-sm font-semibold">Contribution cap usage</h2>
+            <p className="text-xs text-slate-500">
+              Illustration of how current monthly contributions compare to the
+              £500/month SAYE cap.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <div className="text-xs text-slate-500 mb-1">
+                  Total monthly contributions
+                </div>
+                <div className="text-base font-semibold">
+                  {formatMoney(totalMonthly)}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">Cap</div>
+                <div className="text-base font-semibold">
+                  {formatMoney(CAP)}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">
+                  Cap utilisation
+                </div>
+                <div className="text-base font-semibold">
+                  {Math.round((totalMonthly / CAP) * 100)}%
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function SAYEImportsView({ planConfigs }: { planConfigs: PlanConfig[] }) {
+  const [selectedPlanIndex, setSelectedPlanIndex] = useState<number>(0);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    setStatus(
+      "File loaded into the demo UI. In a real system this would be validated and queued for import."
+    );
+  };
+
+  const selectedPlan = planConfigs[selectedPlanIndex];
+
+  return (
+    <div className="space-y-4">
+      <Card className="rounded-2xl border-none shadow-sm">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight">
+                SAYE imports
+              </h1>
+              <p className="text-xs text-slate-500 mt-1">
+                Load contribution files against a specific SAYE plan to update
+                savings positions.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600">
+                Target SAYE plan
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={selectedPlanIndex}
+                onChange={(e) =>
+                  setSelectedPlanIndex(Number(e.target.value) || 0)
+                }
+              >
+                {planConfigs.map((p, i) => (
+                  <option key={i} value={i}>
+                    {p.grantName} ({p.termYears}y, opt px {formatMoney(
+                      p.optionPrice
+                    )}
+                    )
+                  </option>
+                ))}
+              </select>
+              {selectedPlan && (
+                <p className="text-[11px] text-slate-500">
+                  Invite window:{" "}
+                  {new Date(selectedPlan.inviteOpen).toLocaleString()} –{" "}
+                  {new Date(selectedPlan.inviteClose).toLocaleString()}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600">
+                Contribution file (.csv)
+              </label>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileChange}
+                className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border file:border-slate-300 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-slate-50"
+              />
+              <p className="text-[11px] text-slate-500">
+                Expected columns (demo): employee ID, name, payroll month,
+                amount, currency.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-2">
+            <div className="text-[11px] text-slate-500">
+              This is a front-end demo only – no data is stored or sent
+              anywhere.
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="h-8 px-3 text-xs"
+                disabled={!fileName}
+                onClick={() =>
+                  setStatus(
+                    "Validation complete (demo). No issues detected in the sample file."
+                  )
+                }
+              >
+                Validate file
+              </Button>
+              <Button
+                className="h-8 px-3 text-xs"
+                disabled={!fileName}
+                onClick={() =>
+                  setStatus(
+                    "Import simulated. In a real system this would push contributions into the plan ledger."
+                  )
+                }
+              >
+                Import contributions
+              </Button>
+            </div>
+          </div>
+
+          {status && (
+            <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-700">
+              <div className="font-medium mb-0.5">
+                {fileName ? fileName : "No file selected"}
+              </div>
+              <div>{status}</div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+interface ModalProps {
+  open: boolean;
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+  onConfirm: () => void;
+  confirmLabel?: string;
+  tone?: "neutral" | "warning";
+}
+
+function Modal({
+  open,
+  title,
+  children,
+  onClose,
+  onConfirm,
+  confirmLabel = "Confirm",
+  tone = "neutral",
+}: ModalProps) {
+  if (!open) return null;
+  const toneClasses =
+    tone === "warning"
+      ? "ring-1 ring-rose-200 bg-rose-50 text-rose-900"
+      : "ring-1 ring-slate-200 bg-white text-slate-900";
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={`relative w-full max-w-lg rounded-2xl shadow-lg ${toneClasses}`}
+      >
+        <div className="p-5">
+          <h2 className="text-lg font-semibold mb-2">{title}</h2>
+          <div className="text-sm leading-relaxed">{children}</div>
+          <div className="mt-5 flex justify-end gap-2">
+            <Button variant="outline" className="h-9 px-3 text-sm" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button className="h-9 px-3 text-sm" onClick={onConfirm}>
+              {confirmLabel}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+type SAYEConfigViewProps = {
+  planConfigs: PlanConfig[];
+  setPlanConfigs: React.Dispatch<React.SetStateAction<PlanConfig[]>>;
+  participants: Participant[];
+  setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
+  enrolments: EnrollmentRecord[];              // 👈 NEW
+  tab: "plans" | "participants";
+  setTab: React.Dispatch<React.SetStateAction<"plans" | "participants">>;
+  onSelectParticipant: (p: Participant) => void;
+};
+
+function SAYEConfigView({
+  planConfigs,
+  setPlanConfigs,
+  participants,
+  setParticipants,
+  enrolments,
+  tab,
+  setTab,
+  onSelectParticipant,
+}: SAYEConfigViewProps) {
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [draft, setDraft] = useState<PlanConfig | null>(null);
+
+  const openEdit = (index: number) => {
+    const source = planConfigs[index];
+    if (!source) return;
+    setEditingIndex(index);
+    setDraft({ ...source });
+    setEditorOpen(true);
+  };
+
+  const openNew = () => {
+    const baseYear = new Date().getFullYear() + 1;
+    const yearStr = String(baseYear);
+    const newDraft: PlanConfig = {
+      grantName: `${yearStr} SAYE Plan`,
+      inviteOpen: `${yearStr}-02-01T09:00`,
+      inviteClose: `${yearStr}-02-28T17:00`,
+      grantDate: `${yearStr}-03-01`,
+      contractStart: `${yearStr}-03-01`,
+      optionPrice: 1.0,
+      bonusRate: 0,
+      minMonthly: 10,
+      maxMonthly: 500,
+      termYears: 3,
+      ticker: TICKER,
+      exchange: "LSE",
+      termMonths: 36,
+      monthlyContribution: 0,
+      missedPayments: 0,
+      status: "invite",
+      paused: false,
+    };
+    setEditingIndex(null);
+    setDraft(newDraft);
+    setEditorOpen(true);
+  };
+
+  const closeEditor = () => {
+    setEditorOpen(false);
+    setEditingIndex(null);
+    setDraft(null);
+  };
+
+  const saveDraft = () => {
+    if (!draft) return;
+    if (editingIndex == null) {
+      setPlanConfigs((prev) => [...prev, draft]);
+    } else {
+      setPlanConfigs((prev) => prev.map((p, i) => (i === editingIndex ? draft : p)));
+    }
+    closeEditor();
+  };
+
+  // *** FIXED: use a normal function instead of a generic arrow in TSX ***
+  function updateDraft<K extends keyof PlanConfig>(field: K, value: PlanConfig[K]) {
+    setDraft((prev) => (prev ? { ...prev, [field]: value } : prev));
+  }
+
+    const createContractsForPlan = (index: number) => {
+    const plan = planConfigs[index];
+    if (!plan) return;
+
+    // All enrolments for this specific plan
+    const planEnrolments = enrolments.filter(
+      (e) => e.grantName === plan.grantName
+    );
+
+    // 1) Write contracts to each participant based on their enrolment
+    if (planEnrolments.length > 0) {
+      setParticipants((prev) =>
+        prev.map((participant) => {
+          const enrol = planEnrolments.find(
+            (e) => e.participantId === participant.id
+          );
+          if (!enrol) return participant;
+
+          const existingContracts = Array.isArray(participant.contracts)
+            ? participant.contracts
+            : [];
+
+          // Remove any existing contract for this plan (re-create cleanly)
+          const withoutThisPlan = existingContracts.filter(
+            (c: any) => c.grantName !== plan.grantName
+          );
+
+          const newContract = {
+            grantName: plan.grantName,
+            monthlyContribution: enrol.amount,
+            missedPayments: 0,
+          };
+
+          return {
+            ...participant,
+            contracts: [...withoutThisPlan, newContract],
+          };
+        })
+      );
+    }
+
+    // 2) Mark plan as live and set a "typical" monthly contribution
+    setPlanConfigs((prev) =>
+      prev.map((p, i) => {
+        if (i !== index) return p;
+
+        const relevant = planEnrolments;
+        const avgMonthly =
+          relevant.length > 0
+            ? relevant.reduce((sum, e) => sum + e.amount, 0) / relevant.length
+            : (p.minMonthly + p.maxMonthly) / 2;
+
+        return {
+          ...p,
+          status: "live" as PlanStatus,
+          monthlyContribution: avgMonthly,
+        };
+      })
+    );
+  };
+
+    return (
+    <div className="space-y-4">
+      <div className="rounded-full bg-slate-100 p-1 flex max-w-xl mb-4">
+        <button
+          type="button"
+          onClick={() => setTab("plans")}
+          className={`flex-1 text-xs font-medium px-4 py-2 rounded-full ${
+            tab === "plans" ? "bg-white shadow-sm" : "text-slate-500"
+          }`}
+        >
+          Plan overview
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("participants")}
+          className={`flex-1 text-xs font-medium px-4 py-2 rounded-full ${
+            tab === "participants" ? "bg-white shadow-sm" : "text-slate-500"
+          }`}
+        >
+          Participants
+        </button>
+      </div>
+
+      {tab === "plans" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+        <CardContent className="p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight">SAYE plan configuration</h1>
+              <p className="text-xs text-slate-500 mt-1">
+                View all SAYE offerings. Edit a plan or create a new one to push contracts to the participant
+                view.
+              </p>
+            </div>
+          </div>
+
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Existing SAYE plans & offerings
+              </h2>
+              <Button className="h-8 px-3 text-xs" onClick={openNew}>
+                New plan
+              </Button>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Plans marked <span className="font-semibold">Live</span> appear in the participant view. Draft
+              invitations stay hidden until you create contracts.
+            </p>
+
+            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50/80">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Plan</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Status</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Invite window</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Grant date</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Contract start</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Opt price</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Min £/mo</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Max £/mo</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Term</th>
+                    <th className="text-right px-3 py-2 font-semibold text-slate-500">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {planConfigs.map((p, i) => (
+                    <tr key={i} className="align-middle">
+                      <td className="px-3 py-2 text-xs font-medium text-slate-800">{p.grantName}</td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                            p.status === "live"
+                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                              : "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
+                          }`}
+                        >
+                          {p.status === "live" ? "Live" : "Invite"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {new Date(p.inviteOpen).toLocaleString()} —
+                        <br />
+                        {new Date(p.inviteClose).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {new Date(p.grantDate).toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">
+                        {new Date(p.contractStart).toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-700">{formatMoney(p.optionPrice)}</td>
+                      <td className="px-3 py-2 text-xs text-slate-700">{formatMoney(p.minMonthly)}</td>
+                      <td className="px-3 py-2 text-xs text-slate-700">{formatMoney(p.maxMonthly)}</td>
+                      <td className="px-3 py-2 text-xs text-slate-700">{p.termYears} years</td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            className="h-7 px-2 text-[11px]"
+                            onClick={() => openEdit(i)}
+                          >
+                            Edit
+                          </Button>
+                          {p.status === "invite" ? (
+                            <Button
+                              className="h-7 px-2 text-[11px]"
+                              onClick={() => createContractsForPlan(i)}
+                            >
+                              Create contracts
+                            </Button>
+                          ) : (
+                            <span className="text-[11px] text-slate-500">Already live</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </CardContent>
+      </Card>
+      )}
+      {tab === "participants" && (
+        <Card className="rounded-2xl border-none shadow-sm">
+          <CardContent className="p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-lg font-semibold tracking-tight">Participants</h1>
+                <p className="text-xs text-slate-500 mt-1">
+                  Example employees loaded into this demo. In a real system this would come from your HR or payroll
+                  feed.
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-auto rounded-xl ring-1 ring-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50/80">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Name</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Employee ID</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Email</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Location</th>
+                    <th className="text-left px-3 py-2 font-semibold text-slate-500">Currency</th>
+                    <th className="text-right px-3 py-2 font-semibold text-slate-500">Contracts</th>
+                  </tr>
+                </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {participants.map((p) => (
+                      <tr key={p.id}>
+                        <td className="px-3 py-2 text-xs font-medium text-slate-800">
+                          <button
+                            type="button"
+                            onClick={() => onSelectParticipant(p)}
+                            className="text-indigo-600 hover:underline"
+                          >
+                            {p.name}
+                          </button>
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.employeeId ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.email ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.location ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-700">
+                          {p.currency ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-right text-slate-700">
+                          {Array.isArray(p.contracts) && p.contracts.length > 0
+                            ? `${p.contracts.length} contract${
+                                p.contracts.length > 1 ? "s" : ""
+                              }`
+                            : "No contracts"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {participants.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-4 text-xs text-slate-500 text-center">
+                        No participants loaded in this demo.
+                      </td>
+                    </tr>
+                  )}
+                  </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      <Modal
+        open={editorOpen && !!draft}
+        title={editingIndex == null ? "Create new SAYE plan" : "Edit SAYE plan"}
+        tone="neutral"
+        onClose={closeEditor}
+        onConfirm={saveDraft}
+        confirmLabel={editingIndex == null ? "Save & add plan" : "Save changes"}
+      >
+        {draft && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Plan name</label>
+                <input
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={draft.grantName}
+                  onChange={(e) => updateDraft("grantName", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Bonus / interest rate (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={draft.bonusRate}
+                  onChange={(e) => updateDraft("bonusRate", Number(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Invite window opens</label>
+                <input
+                  type="datetime-local"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={draft.inviteOpen}
+                  onChange={(e) => updateDraft("inviteOpen", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Invite window closes</label>
+                <input
+                  type="datetime-local"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={draft.inviteClose}
+                  onChange={(e) => updateDraft("inviteClose", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Grant date</label>
+                <input
+                  type="date"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={draft.grantDate}
+                  onChange={(e) => updateDraft("grantDate", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Contract start date</label>
+                <input
+                  type="date"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={draft.contractStart}
+                  onChange={(e) => updateDraft("contractStart", e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Option price (£)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={draft.optionPrice}
+                  onChange={(e) => updateDraft("optionPrice", Number(e.target.value) || 0)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Minimum monthly (£)</label>
+                <input
+                  type="number"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={draft.minMonthly}
+                  onChange={(e) => updateDraft("minMonthly", Number(e.target.value) || 0)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Maximum monthly (£)</label>
+                <input
+                  type="number"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={draft.maxMonthly}
+                  onChange={(e) => updateDraft("maxMonthly", Number(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-xs font-medium text-slate-600">Term</label>
+                <div className="flex gap-3 text-xs">
+                  <label className="inline-flex items-center gap-1">
+                    <input
+                      type="radio"
+                      name="termYears"
+                      checked={draft.termYears === 3}
+                      onChange={() => {
+                        updateDraft("termYears", 3);
+                        updateDraft("termMonths", 36);
+                      }}
+                    />
+                    <span>3 years</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1">
+                    <input
+                      type="radio"
+                      name="termYears"
+                      checked={draft.termYears === 5}
+                      onChange={() => {
+                        updateDraft("termYears", 5);
+                        updateDraft("termMonths", 60);
+                      }}
+                    />
+                    <span>5 years</span>
+                  </label>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Status</label>
+                <select
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={draft.status}
+                  onChange={(e) => updateDraft("status", e.target.value as PlanStatus)}
+                >
+                  <option value="invite">Invite</option>
+                  <option value="live">Live</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Ticker</label>
+                <input
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={draft.ticker}
+                  onChange={(e) => updateDraft("ticker", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Exchange</label>
+                <input
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={draft.exchange}
+                  onChange={(e) => updateDraft("exchange", e.target.value)}
+                />
+              </div>
+              <div className="flex items-center text-[11px] text-slate-500">
+                <span>
+                  These settings control the live price feed and indicative gain shown in the participant view.
+                </span>
+              </div>
+            </div>
           </div>
         )}
-
-        {importSummary && (
-          <div className="text-[11px] text-slate-600">
-            Total rows: {importSummary.totalRows} · Updated participants:{" "}
-            {importSummary.updated} · Unmatched rows:{" "}
-            {importSummary.unmatched}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      </Modal>
+    </div>
   );
 }
