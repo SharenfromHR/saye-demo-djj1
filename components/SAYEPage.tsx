@@ -1155,7 +1155,7 @@ return (
       <div className="flex gap-6">
         {/* Sidebar... */}
           <aside className="w-60 shrink-0">
-            <nav className="sticky top-6 space-y-1 text-sm">
+            <nav className="space-y-1 text-sm">
               {["Dashboard", "My portfolio", "My orders", "Documents", "Simulations"].map(
                 (label) => (
                   <div
