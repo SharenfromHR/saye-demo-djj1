@@ -1889,10 +1889,10 @@ const exportCustomCsv = () => {
   a.href = url;
   a.download = "custom-report.csv";
   a.click();
-  URL.revokeObjectURL(url);
-};
-}
-  const exportToCsv = () => {
+    URL.revokeObjectURL(url);
+    }};
+      
+    const exportToCsv = () => {
     if (!allContracts.length) {
       alert("No data to export.");
       return;
