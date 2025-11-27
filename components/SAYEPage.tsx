@@ -562,12 +562,14 @@ result.push({
   importedHistory,
 });
 
-    return result.sort(
-      (a, b) =>
-        new Date(a.contractStart).getTime() -
-        new Date(b.contractStart).getTime()
-    );
-  }, [enriched, selectedParticipant]);
+return result.sort(
+  (a, b) =>
+    new Date(a.contractStart).getTime() -
+    new Date(b.contractStart).getTime()
+);
+}, [enriched, selectedParticipant]);
+
+}
 
 function SAYEImportsView({
   planConfigs,
